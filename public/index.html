@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>CC Grid</title>
+<link rel="icon" href="/logo.svg">
+<link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: #fff; font: 13px -apple-system, "Hiragino Sans", sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { display: flex; gap: 6px; align-items: center; padding: 5px 10px; border-bottom: 1px solid #333; position: relative; }
+  .logo { height: 24px; margin-right: 4px; }
+  header h1 { font-size: 14px; margin: 0 12px 0 0; letter-spacing: .05em; }
+  .sp { flex: 1; }
+  input, select { background: #000; border: 1px solid #555; color: #fff; padding: 5px 8px; border-radius: 2px; font: inherit; }
+  input:focus, select:focus { outline: none; border-color: #fff; }
+  #cwd { width: 240px; min-width: 120px; flex: 0 1 240px; } #name { width: 110px; min-width: 70px; flex: 0 1 110px; }
+  header input { padding: 3px 7px; }
+  button { background: #fff; border: 1px solid #fff; color: #000; padding: 5px 12px; border-radius: 2px; cursor: pointer; font: inherit; }
+  button:hover { background: #ccc; }
+  button.ic { width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: #000; color: #aaa; border: 1px solid #333; position: relative; flex: none; }
+  button.ic:hover { color: #fff; border-color: #fff; background: #000; }
+  button.ic.solid { background: #fff; color: #000; border-color: #fff; }
+  button.ic.solid:hover { background: #ccc; color: #000; }
+  button.ic.on { color: #fff; border-color: #fff; }
+  button.ic[data-n]:not([data-n="0"])::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; background: #fff; color: #000; font-size: 10px; line-height: 14px; min-width: 14px; border-radius: 2px; }
+  #setwrap, #setswrap { position: relative; }
+  #sets { position: absolute; right: 0; top: 32px; z-index: 20; background: #000; border: 1px solid #fff; padding: 8px 10px; width: 300px; display: grid; gap: 8px; }
+  #sets .row { display: flex; gap: 6px; } #sets .row input { flex: 1; min-width: 0; padding: 3px 6px; }
+  #setlist { display: grid; gap: 4px; max-height: 240px; overflow: auto; }
+  #setlist div { display: flex; align-items: center; gap: 6px; font-size: 12px; } #setlist span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #setlist small { color: #777; }
+  #setmsg { color: #999; font-size: 11px; }
+  .chart { display: flex; align-items: flex-end; gap: 6px; height: 160px; padding: 6px 0 0; border-bottom: 1px solid #333; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-width: 0; }
+  .chart .o { background: #fff; } .chart .i { background: #666; }
+  .xl { display: flex; gap: 6px; color: #777; font-size: 10px; margin-top: 3px; } .xl span { flex: 1; text-align: center; }
+  #modal .body { flex: 1; overflow: auto; padding: 10px 14px; color: #ccc; }
+  #modal .body h3 { margin: 14px 0 6px; font-size: 12px; color: #fff; }
+  #modal .kv { display: flex; gap: 18px; flex-wrap: wrap; } #modal .kv div { font-size: 12px; } #modal .kv b { display: block; font-size: 18px; color: #fff; font-weight: 600; }
+  #modal .brow { display: grid; grid-template-columns: 160px 1fr 150px; gap: 8px; align-items: center; font-size: 12px; margin: 3px 0; }
+  #modal .brow .bar2 { height: 8px; background: #222; } #modal .brow .bar2 i { display: block; height: 100%; background: #fff; }
+  #modal .note { color: #777; font-size: 11px; margin-top: 10px; }
+  #settings { position: absolute; right: 0; top: 32px; z-index: 20; background: #000; border: 1px solid #fff; padding: 8px 10px; display: grid; gap: 6px; min-width: 190px; }
+  #settings label { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #aaa; font-size: 12px; }
+  #settings select { padding: 2px 4px; }
+  #lim, #sum { white-space: nowrap; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  button.ghost { background: #000; color: #aaa; border: 1px solid #444; padding: 1px 8px; }
+  button.ghost:hover { color: #fff; border-color: #fff; background: #000; }
+  #grid { flex: 1; display: grid; gap: 6px; padding: 6px; min-height: 0; }
+  #empty { color: #666; margin: auto; }
+  .tile { --c: #fff; border-color: var(--c) !important; display: flex; flex-direction: column; border: 1px solid #333; min-width: 0; min-height: 0; background: #000; }
+  .tile[data-state="run"] { --c: #facc15; }
+  .tile[data-state="ask"] { --c: #ef4444; }
+  .tile[data-state="done"] { --c: #22c55e; }
+  .tile[data-state="end"] { --c: #555; }
+  .tile.focus { box-shadow: inset 0 0 0 1px var(--c); }
+  .bar { border-bottom-color: var(--c) !important; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-bottom: 1px solid #333; }
+  .bar .n { font-weight: 600; cursor: text; }
+  
+  .bar .p { color: #777; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .bar .tk { color: #777; font-size: 11px; white-space: nowrap; }
+  .bar .ti { color: #999; font-size: 12px; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .st { font-size: 11px; color: var(--c); border: 1px solid var(--c); padding: 0 5px; border-radius: 2px; }
+  .bar .st[data-s="idle"] { border-color: transparent; }
+  #sum { color: #999; font-size: 12px; }
+  .tile { background: var(--term-bg, #000); }
+  .term { background: var(--term-bg, #000); flex: 1; min-height: 0; padding: 2px 0 0 4px; }
+  .max { grid-column: 1 / -1; grid-row: 1 / -1; }
+  .hide { display: none !important; }
+  #pgs { display: flex; gap: 4px; }
+  #pgs button { padding: 1px 7px; border-color: var(--c, #444); color: var(--c, #aaa); }
+  #pgs button.cur { background: #fff; color: #000; border-color: #fff; }
+  #pgs button[data-s="run"] { --c: #facc15; }
+  #pgs button[data-s="ask"] { --c: #ef4444; }
+  #pgs button[data-s="done"] { --c: #22c55e; }
+  #pgs button.cur[data-s] { background: var(--c); border-color: var(--c); color: #000; }
+  #pager { display: flex; gap: 6px; align-items: center; color: #999; font-size: 12px; }
+  .th { padding: 0 2px; font-size: 11px; max-width: 8em; color: #aaa; }
+  @keyframes hue { to { filter: hue-rotate(360deg); } }
+  .rainbow .term { animation: hue 12s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .rainbow .term { animation: none; } }
+  @keyframes bgshift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  .rainbow-bg .term { background: linear-gradient(120deg, #7f1d1d, #78350f, #365314, #134e4a, #1e3a8a, #581c87, #831843, #7f1d1d); background-size: 400% 400%; animation: bgshift 24s ease infinite; }
+  @media (prefers-reduced-motion: reduce) { .rainbow-bg .term { animation: none; } }
+  .tile.drop { outline: 2px dashed #fff; outline-offset: -4px; }
+  .askbox { padding: 6px 8px; border-bottom: 1px solid var(--c); font-size: 12px; }
+  .askbox pre { margin: 0 0 6px; max-height: 9.5em; overflow: auto; white-space: pre-wrap; word-break: break-all; font: 12px ui-monospace, Menlo, monospace; color: #fff; }
+  .askbox .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .askbox button { background: #000; color: #fff; border: 1px solid #fff; padding: 2px 10px; text-align: left; }
+  .askbox button:hover { background: #fff; color: #000; }
+  .askbox button.no { border-color: #ef4444; color: #ef4444; }
+  .askbox button.no:hover { background: #ef4444; color: #000; }
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  #modal .box { width: min(1100px, 94vw); height: 86vh; background: #000; border: 1px solid #fff; display: flex; flex-direction: column; }
+  #modal .mh { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-bottom: 1px solid #333; }
+  #modal .mh b { font-weight: 600; } #modal .mh span { color: #777; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #modal pre { flex: 1; margin: 0; padding: 8px 10px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; color: #ccc; white-space: pre; }
+  #modal .a { color: #22c55e; } #modal .d { color: #ef4444; } #modal .h { color: #777; } #modal .f { color: #fff; font-weight: 700; }
+
+  .tile { container-type: inline-size; }
+  .bar { flex-wrap: nowrap; overflow: hidden; }
+  .bar > * { flex: none; }
+  .bar .n { flex: 0 1 auto; min-width: 2ch; max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .ti { flex: 0 1 auto; min-width: 0; }
+  .bar .p { flex: 1 1 0; min-width: 0; }
+  .bar .st { white-space: nowrap; }
+  .ib { width: 22px; height: 22px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: #000; color: #999; border: 1px solid #333; border-radius: 2px; cursor: pointer; position: relative; }
+  .ib:hover { color: #fff; border-color: #fff; background: #000; }
+  .thw select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; }
+  .grip { display: none; cursor: grab; color: #aaa; user-select: none; }
+  body.reorder .grip { display: inline; }
+  body.reorder .tile { outline: 1px dashed #666; outline-offset: -3px; }
+  .tile.dropto { outline: 2px solid #fff !important; }
+  .bd { font-size: 11px; color: #aaa; border: 1px solid #444; padding: 0 4px; border-radius: 2px; white-space: nowrap; }
+  .bd.warn { color: #facc15; border-color: #facc15; }
+  .an { font-size: 11px; color: #ef4444; border: 1px solid #ef4444; padding: 0 4px; border-radius: 2px; white-space: nowrap; }
+  .cs { font-size: 11px; cursor: pointer; white-space: nowrap; color: #aaa; }
+  .cs[data-s="ok"] { color: #22c55e; } .cs[data-s="ng"] { color: #ef4444; } .cs[data-s="run"] { color: #facc15; }
+  .el { font-size: 11px; color: #facc15; font-variant-numeric: tabular-nums; }
+  @container (max-width: 700px) { .bar .p { display: none; } }
+  @container (max-width: 560px) { .bar .ti { display: none; } }
+  @container (max-width: 470px) { .bar .tk, .bar .bd.wt { display: none; } }
+  @container (max-width: 400px) { .bar .el { display: none; } .bar .sh { max-width: 1.5em; overflow: hidden; padding: 0 3px; } .bar .rn { display: none; } }
+  @container (max-width: 340px) { .bar .ho, .bar .df { display: none; } }
+  .bar .n { min-width: 4ch; }
+  #toast { position: fixed; right: 14px; bottom: 14px; z-index: 80; display: grid; gap: 6px; }
+  #toast div { background: #fff; color: #000; padding: 6px 12px; font-size: 12px; max-width: 360px; border-radius: 2px; }
+  #modal textarea { width: 100%; background: #000; color: #ddd; border: 1px solid #555; padding: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace; border-radius: 2px; resize: vertical; }
+  #modal .row2 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  #modal .chip { background: #000; color: #aaa; border: 1px solid #444; padding: 1px 8px; border-radius: 2px; cursor: pointer; font-size: 11px; }
+  #modal .chip:hover { color: #fff; border-color: #fff; }
+  #modal input[type=text], #modal select { background: #000; color: #fff; border: 1px solid #555; padding: 4px 8px; border-radius: 2px; font: inherit; }
+  #modal .res { border-bottom: 1px solid #222; padding: 6px 0; font-size: 12px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+  #modal .res .meta { color: #777; font-size: 11px; } #modal .res mark { background: #fff; color: #000; }
+  #modal .ov { display: grid; grid-template-columns: 90px 160px 1fr; gap: 10px; padding: 6px 4px; border-bottom: 1px solid #222; cursor: pointer; font-size: 12px; }
+  #modal .ov:hover { background: #111; } #modal .ov pre { margin: 0; padding: 0; overflow: hidden; max-height: 3em; color: #888; flex: none; font-size: 11px; }
+  .ck { accent-color: #fff; margin: 0; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  #lim { color: #fff; font-size: 12px; }
+  .k { color: #666; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo.svg" alt="" class="logo">
+  <input id="cwd" list="dirs" placeholder="作業ディレクトリ (空=ホーム)">
+  <datalist id="dirs"></datalist>
+  <input id="name" placeholder="名前">
+  <button id="add" class="ic solid" title="追加"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M8 3v10M3 8h10"/></svg></button>
+  <span id="pager" class="hide"><button id="prev" class="ghost">‹</button><span id="pgs"></span><button id="next" class="ghost">›</button></span>
+  <span id="lim"><span id="l5"></span> <span id="lw"></span></span>
+  <span id="sum"></span>
+  <span class="sp"></span>
+  <button id="wtbtn" class="ic" title="新規パネルをworktreeで作る (同じフォルダでの衝突を避ける)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="6" r="1.5"/><path d="M4.5 5v6M11.5 7.5c0 2.5-3 2-7 4"/></svg></button>
+  <button id="ovbtn" class="ic" title="一覧 (状態別)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 3.5h11M2.5 8h11M2.5 12.5h11"/></svg></button>
+  <button id="srbtn" class="ic" title="履歴を検索"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg></button>
+  <button id="rdbtn" class="ic" title="並び替え"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 13V3M5 3L2.5 5.5M5 3l2.5 2.5M11 3v10M11 13l-2.5-2.5M11 13l2.5-2.5"/></svg></button>
+  <button id="usebtn" class="ic" title="使用量"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 13V8M8 13V3M13 13V6"/></svg></button>
+  <span id="setswrap">
+    <button id="setsbtn" class="ic" title="配置の保存・復元"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M4 2.5h8v11l-4-3-4 3z"/></svg></button>
+    <div id="sets" class="hide">
+      <div class="row"><input id="setname" placeholder="名前 (例: 今日のセット)"><button id="setsave" class="ghost">保存</button></div>
+      <div id="setlist"></div>
+      <div id="setmsg"></div>
+    </div>
+  </span>
+  <button id="selall" class="ic" title="全選択"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2.5" y="2.5" width="11" height="11"/><path d="M5.5 8l2 2 3.5-4"/></svg></button>
+  <button id="delsel" class="ic" title="選択を削除" disabled><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5"/></svg></button>
+  <button id="notif" class="ic" title="通知"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M4 11V7a4 4 0 018 0v4l1 1.5H3zM6.5 14h3"/></svg></button>
+  <span id="setwrap">
+    <button id="setbtn" class="ic" title="設定"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg></button>
+    <div id="settings" class="hide">
+      <label>テーマ<select id="theme"></select></label>
+      <label>列数<select id="cols"><option value="0">自動</option><option value="1">1列</option><option value="2">2列</option><option value="3">3列</option><option value="4">4列</option></select></label>
+      <label>文字サイズ<select id="fs"><option value="11">小</option><option value="12">中</option><option value="14">大</option><option value="16">特大</option></select></label>
+      <label>スクロール<select id="ss"><option value="1">遅</option><option value="3">標準</option><option value="5">速</option><option value="8">特速</option></select></label>
+    </div>
+  </span>
+</header>
+<div id="grid"><div id="empty">「＋ 追加」でClaudeを起動</div></div>
+<script src="/vendor/xterm/lib/xterm.js"></script>
+<script src="/vendor/fit/lib/addon-fit.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const grid = $('grid');
+const tiles = new Map();
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let maxId = null;
+let scrollSpeed = Number(store.get('ss', 3));
+if (![1, 3, 5, 8].includes(scrollSpeed)) scrollSpeed = 3;
+const STD = ['#000000', '#990000', '#00a600', '#999900', '#0000b2', '#b200b2', '#00a6b2', '#bfbfbf', '#666666', '#e50000', '#00d900', '#e5e500', '#0000ff', '#e500e5', '#00e5e5', '#e5e5e5'];
+const mk = (background, foreground, cursor, selectionBackground, ansi = STD) => ({
+  background, foreground, cursor, selectionBackground,
+  black: ansi[0], red: ansi[1], green: ansi[2], yellow: ansi[3], blue: ansi[4], magenta: ansi[5], cyan: ansi[6], white: ansi[7],
+  brightBlack: ansi[8], brightRed: ansi[9], brightGreen: ansi[10], brightYellow: ansi[11], brightBlue: ansi[12], brightMagenta: ansi[13], brightCyan: ansi[14], brightWhite: ansi[15],
+});
+const THEMES = {
+  Homebrew: mk('#000000', '#28fe14', '#00ff00', '#083905'),
+  Basic: mk('#ffffff', '#000000', '#7f7f7f', '#b4d5ff'),
+  Grass: mk('#13773d', '#fff0a5', '#8c2800', '#b64926', ['#000000', '#bb0000', '#00bb00', '#e7b000', '#0000a3', '#950062', '#00bbbb', '#bbbbbb', '#555555', '#bb0000', '#00bb00', '#e7b000', '#0000bb', '#ff55ff', '#55ffff', '#ffffff']),
+  'Man Page': mk('#fef49c', '#000000', '#7f7f7f', '#a4ad7c'),
+  Novel: mk('#dfdbc3', '#3b2322', '#73635a', '#a4a390'),
+  Pro: mk('#000000', '#f2f2f2', '#4d4d4d', '#414141'),
+  'Rainbow 文字': mk('#000000', '#ff5f5f', '#ffffff', '#444444', ['#000000', '#ff3b3b', '#ffd23b', '#a6e22e', '#3b82ff', '#c03bff', '#3bffe0', '#e0e0e0', '#666666', '#ff7a7a', '#ffe27a', '#c4f36b', '#7aa8ff', '#d77aff', '#7affea', '#ffffff']),
+  'Rainbow 背景': mk('rgba(0, 0, 0, 0)', '#ffffff', '#ffffff', 'rgba(255, 255, 255, 0.28)'),
+  'Red Sands': mk('#7a251e', '#d7c9a7', '#ffffff', '#5d1e19'),
+};
+let themeName = store.get('theme', 'Homebrew');
+if (!THEMES[themeName]) themeName = 'Homebrew';
+$('theme').replaceChildren(...Object.keys(THEMES).map((n) => Object.assign(document.createElement('option'), { value: n, textContent: n, selected: n === themeName })));
+const tileThemeName = (id) => {
+  const n = store.get(`theme:${id}`, '');
+  return THEMES[n] ? n : '';
+};
+function applyTileTheme(id, t) {
+  const name = tileThemeName(id) || themeName;
+  const th = THEMES[name];
+  t.el.classList.toggle('rainbow', name === 'Rainbow 文字');
+  t.el.classList.toggle('rainbow-bg', name === 'Rainbow 背景');
+  t.term.options.theme = th;
+  if (tileThemeName(id)) t.el.style.setProperty('--term-bg', th.background);
+  else t.el.style.removeProperty('--term-bg');
+}
+function applyTheme() {
+  document.documentElement.style.setProperty('--term-bg', THEMES[themeName].background);
+  tiles.forEach((t, id) => applyTileTheme(id, t));
+}
+
+let colsPref = Number(store.get('cols', 0));
+let fontSize = Number(store.get('fs', 12));
+let notifyOn = store.get('notif', '0') === '1' && Notification.permission === 'granted';
+$('cols').value = colsPref;
+$('fs').value = fontSize;
+$('setbtn').onclick = (e) => { e.stopPropagation(); $('settings').classList.toggle('hide'); };
+window.addEventListener('click', (e) => { if (!e.target.closest('#settings')) $('settings').classList.add('hide'); });
+const renderNotif = () => { $('notif').classList.toggle('on', notifyOn); $('notif').title = `通知: ${notifyOn ? 'ON' : 'OFF'}`; };
+renderNotif();
+
+const RANK = { ask: 3, done: 2, run: 1 };
+let page = 0;
+let pgCount = 1;
+function renderPager(pages, perPage) {
+  pgCount = pages;
+  const ids = [...tiles.keys()];
+  const btns = [];
+  for (let i = 0; i < pages; i++) {
+    let best = '';
+    for (const id of ids.slice(i * perPage, (i + 1) * perPage)) {
+      const st = tiles.get(id).state;
+      if ((RANK[st] || 0) > (RANK[best] || 0)) best = st;
+    }
+    const b = document.createElement('button');
+    b.className = 'ghost' + (i === page ? ' cur' : '');
+    if (best) b.dataset.s = best;
+    b.textContent = i + 1;
+    b.onclick = () => { page = i; layout(); };
+    btns.push(b);
+  }
+  $('pgs').replaceChildren(...btns);
+}
+
+const MIN_H = 360;
+const pageInfo = () => {
+  const n = tiles.size || 1;
+  const cols = colsPref || Math.min(3, Math.ceil(Math.sqrt(n)));
+  const rowsFit = Math.max(1, Math.floor(grid.clientHeight / MIN_H));
+  return { cols, perPage: cols * rowsFit };
+};
+
+function layout() {
+  const ids = [...tiles.keys()];
+  const { cols, perPage } = pageInfo();
+  const pages = Math.max(1, Math.ceil(ids.length / perPage));
+  page = Math.min(page, pages - 1);
+  const visible = new Set(maxId !== null ? [maxId] : ids.slice(page * perPage, (page + 1) * perPage));
+  const c = maxId !== null ? 1 : cols;
+  grid.style.gridTemplateColumns = `repeat(${c}, minmax(0, 1fr))`;
+  grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.ceil(visible.size / c))}, minmax(0, 1fr))`;
+  $('empty').classList.toggle('hide', tiles.size > 0);
+  for (const [id, t] of tiles) {
+    t.el.classList.toggle('max', id === maxId);
+    t.el.classList.toggle('hide', !visible.has(id));
+  }
+  $('pager').classList.toggle('hide', pages <= 1 || maxId !== null);
+  renderPager(pages, perPage);
+  $('prev').disabled = page === 0;
+  $('next').disabled = page >= pages - 1;
+  requestAnimationFrame(() => tiles.forEach((t) => !t.el.classList.contains('hide') && t.fit()));
+}
+
+const checked = () => [...tiles.entries()].filter(([, t]) => t.el.querySelector('.ck').checked);
+function updateSel() {
+  const n = checked().length;
+  $('delsel').disabled = !n;
+  $('delsel').dataset.n = n;
+  $('selall').title = n && n === tiles.size ? '全解除' : '全選択';
+  $('selall').classList.toggle('on', n > 0 && n === tiles.size);
+}
+
+function focusTile(id) {
+  const t = tiles.get(id);
+  if (!t) return;
+  if (t.el.classList.contains('hide')) {
+    page = Math.floor([...tiles.keys()].indexOf(id) / pageInfo().perPage);
+    layout();
+  }
+  tiles.forEach((x) => x.el.classList.remove('focus'));
+  t.el.classList.add('focus');
+  t.el.classList.remove('done');
+  t.term.focus();
+  updateTitle();
+}
+
+function updateTitle() {
+  const n = [...tiles.values()].filter((t) => t.el.classList.contains('done')).length;
+  document.title = n ? `(${n}) CC Grid` : 'CC Grid';
+}
+
+function addTile(s) {
+  if (tiles.has(s.id)) return;
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.innerHTML = `<div class="bar"><input type="checkbox" class="ck"><span class="grip" title="ドラッグで並び替え" draggable="true">⋮⋮</span><span class="n"></span><span class="bd wt hide"></span><span class="bd warn sh hide"></span><span class="ti"></span><span class="p"></span><span class="tk"></span><span class="an hide"></span><span class="cs hide"></span><span class="el hide"></span><span class="st">待機</span><label class="ib thw" title="このパネルのテーマ"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11"/></svg><select class="th"></select></label><button class="ib df" title="gitの変更を見る"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 2.5v11M5 5.5h6M11 5.5v8M3 13.5h4"/></svg></button><button class="ib ho" title="引き継ぎ・保存を促す"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h9M8 4.5L11.5 8 8 11.5M13.5 3v10"/></svg></button><button class="ib ch" title="完了後の自動チェック"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2.5" y="2.5" width="11" height="11"/><path d="M5.5 8l2 2 3.5-4"/></svg></button><button class="ib rn" title="名前を変更"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 13l.5-3L11 2.5 13.5 5 6 12.5z"/></svg></button><button class="ib mx" title="拡大"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3"/></svg></button><button class="ib rm" title="削除"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div><div class="askbox hide"></div><div class="term"></div>`;
+  const nameEl = el.querySelector('.n');
+  nameEl.textContent = s.name;
+  el.querySelector('.p').textContent = s.cwd;
+  setWorktreeBadge(el, s);
+  const term = new Terminal({ allowTransparency: true, smoothScrollDuration: 120, scrollSensitivity: scrollSpeed, fontSize, cursorBlink: true, scrollback: 5000, theme: THEMES[tileThemeName(s.id) || themeName] });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.attachCustomWheelEventHandler((e) => {
+    const notch = e.deltaMode === 1 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && e.wheelDeltaY % 120 === 0);
+    if (!notch) return true;
+    term.scrollLines(Math.sign(e.deltaY) * 4);
+    return false;
+  });
+  grid.appendChild(el);
+  term.open(el.querySelector('.term'));
+  const grip = el.querySelector('.grip');
+  grip.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-grid', s.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setDragImage(el, 20, 10); });
+  el.addEventListener('dragover', (e) => {
+    const ty = e.dataTransfer?.types || [];
+    if (ty.includes('text/x-grid')) { e.preventDefault(); el.classList.add('dropto'); }
+    else if (ty.includes('Files')) { e.preventDefault(); el.classList.add('drop'); }
+  });
+  el.addEventListener('dragleave', (e) => { if (e.target === el || !el.contains(e.relatedTarget)) { el.classList.remove('drop'); el.classList.remove('dropto'); } });
+  el.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    el.classList.remove('drop');
+    el.classList.remove('dropto');
+    const from = e.dataTransfer.getData('text/x-grid');
+    if (from) { moveTile(from, s.id); return; }
+    const paths = [];
+    for (const f of e.dataTransfer.files) {
+      const r = await fetch(`/api/upload?name=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
+      paths.push((await r.json()).path);
+    }
+    if (paths.length) { term.paste(paths.join(' ') + ' '); term.focus(); }
+  });
+  el.querySelector('.term').addEventListener('paste', (e) => {
+    const types = [...(e.clipboardData?.types || [])];
+    if (types.some((t) => t.startsWith('image/')) && !types.includes('text/plain')) {
+      e.preventDefault();
+      e.stopPropagation();
+      send({ type: 'input', data: '\x16' });
+    }
+  }, true);
+  const ws = new WebSocket(`ws://${location.host}/ws?id=${s.id}`);
+  const send = (o) => ws.readyState === 1 && ws.send(JSON.stringify(o));
+  ws.onmessage = (e) => term.write(e.data);
+  term.onData((data) => send({ type: 'input', data }));
+  term.attachCustomKeyEventHandler((e) => !(e.altKey && (e.code === 'Tab' || /^Digit[1-9]$/.test(e.code))));
+  term.onTitleChange((t) => { el.querySelector('.ti').textContent = t.replace(/^[^\p{L}\p{N}]+/u, ''); });
+  const fit = () => { try { fitAddon.fit(); send({ type: 'resize', cols: term.cols, rows: term.rows }); } catch {} };
+  ws.onopen = fit;
+  el.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'INPUT') focusTile(s.id); });
+  el.querySelector('.mx').onclick = () => { maxId = maxId === s.id ? null : s.id; layout(); term.focus(); };
+  const startRename = () => {
+    if (nameEl.querySelector('input')) return;
+    const inp = document.createElement('input');
+    inp.value = s.name;
+    inp.style.width = '14em';
+    nameEl.textContent = '';
+    nameEl.appendChild(inp);
+    inp.focus();
+    inp.select();
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const name = save ? inp.value.trim() : '';
+      if (name) {
+        s.name = name;
+        await fetch(`/api/sessions/${s.id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+      }
+      nameEl.textContent = s.name;
+      term.focus();
+    };
+    inp.onkeydown = (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter') finish(true);
+      else if (e.key === 'Escape') finish(false);
+    };
+    inp.onblur = () => finish(true);
+  };
+  nameEl.ondblclick = startRename;
+  el.querySelector('.rn').onclick = startRename;
+  el.querySelector('.df').onclick = () => showDiff(s.id, () => s.name);
+  el.querySelector('.ho').onclick = () => showHandoff(tiles.get(s.id));
+  el.querySelector('.ch').onclick = () => showCheck(tiles.get(s.id));
+  el.querySelector('.cs').onclick = () => showCheck(tiles.get(s.id));
+  el.querySelector('.rm').onclick = async () => {
+    if (await confirmBox(`「${s.name}」を終了して削除しますか？(削除後15秒は元に戻せます)`)) await deleteTiles([s.id]);
+  };
+  const close = () => { ws.close(); term.dispose(); };
+  const thSel = el.querySelector('.th');
+  thSel.replaceChildren(...['', ...Object.keys(THEMES)].map((n) => Object.assign(document.createElement('option'), { value: n, textContent: n || '既定', selected: n === tileThemeName(s.id) })));
+  thSel.onchange = () => {
+    store.set(`theme:${s.id}`, thSel.value);
+    applyTileTheme(s.id, tiles.get(s.id));
+  };
+  thSel.onmousedown = (e) => e.stopPropagation();
+  el.querySelector('.ck').onchange = updateSel;
+  tiles.set(s.id, { el, send, close, an: el.querySelector('.an'), cs: el.querySelector('.cs'), elapsed: el.querySelector('.el'), sh: el.querySelector('.sh'), tk: el.querySelector('.tk'), fit, term, s, running: false, runSince: 0, st: el.querySelector('.st') });
+  applyTileTheme(s.id, tiles.get(s.id));
+  saveOrder();
+  layout();
+}
+
+const fmt = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+
+
+const toastBox = document.createElement('div');
+toastBox.id = 'toast';
+document.body.appendChild(toastBox);
+function toast(msg, act) {
+  const d = document.createElement('div');
+  d.textContent = msg;
+  if (act) {
+    const b = document.createElement('button');
+    b.textContent = act.label;
+    b.style.cssText = 'margin-left:10px;background:#000;color:#fff;border:1px solid #000;padding:1px 8px;border-radius:2px;cursor:pointer';
+    b.onclick = () => { d.remove(); act.fn(); };
+    d.appendChild(b);
+  }
+  toastBox.appendChild(d);
+  setTimeout(() => d.remove(), act ? act.ms : 4500);
+}
+
+
+function confirmBox(msg, okLabel = '削除する') {
+  return new Promise((resolve) => {
+    const { body, close, modal } = makeModal('確認', '');
+    modal.querySelector('.box').style.cssText = 'width:min(440px,92vw);height:auto';
+    body.style.flex = 'none';
+    const pEl = hel('p', '', msg); pEl.style.whiteSpace = 'pre-wrap'; body.appendChild(pEl);
+    const row = hel('div', 'row2');
+    const cancel = hel('button', 'ghost', 'キャンセル');
+    const ok = hel('button', 'ghost', okLabel);
+    ok.style.cssText = 'border-color:#ef4444;color:#ef4444';
+    row.append(cancel, ok);
+    body.appendChild(row);
+    let done = false;
+    const onEsc = (e) => { if (e.key === 'Escape') fin(false); };
+    const fin = (v) => { if (done) return; done = true; window.removeEventListener('keydown', onEsc, true); close(); resolve(v); };
+    window.addEventListener('keydown', onEsc, true);
+    ok.onclick = () => fin(true);
+    cancel.onclick = () => fin(false);
+    modal.querySelector('.cl').onclick = () => fin(false);
+    modal.addEventListener('click', (e) => { if (e.target === modal) fin(false); });
+    cancel.focus();
+  });
+}
+
+async function deleteTiles(ids) {
+  await Promise.all(ids.map((id) => fetch(`/api/sessions/${id}`, { method: 'DELETE' })));
+  const removed = [];
+  for (const id of ids) {
+    const t = tiles.get(id);
+    if (!t) continue;
+    removed.push(t.s);
+    t.close(); t.el.remove(); tiles.delete(id);
+    if (maxId === id) maxId = null;
+  }
+  saveOrder(); layout(); updateTitle(); updateSel();
+  if (!removed.length) return;
+  toast(`${removed.length}件を削除しました`, {
+    label: '元に戻す', ms: 15000,
+    fn: async () => {
+      for (const x of removed) {
+        const r = await api(`/api/sessions/${x.id}/undo`, 'POST', {});
+        if (r.ok) addTile(r.data); else toast('元に戻せませんでした (15秒を過ぎています)');
+      }
+    },
+  });
+}
+
+function saveOrder() { store.set('order', JSON.stringify([...tiles.keys()])); }
+
+function moveTile(fromId, toId) {
+  if (fromId === toId || !tiles.has(fromId) || !tiles.has(toId)) return;
+  const ids = [...tiles.keys()];
+  const fi = ids.indexOf(fromId), ti = ids.indexOf(toId);
+  ids.splice(fi, 1);
+  ids.splice(ti, 0, fromId);
+  const entries = ids.map((id) => [id, tiles.get(id)]);
+  tiles.clear();
+  entries.forEach(([id, t]) => { tiles.set(id, t); grid.appendChild(t.el); });
+  saveOrder();
+  layout();
+}
+
+function setWorktreeBadge(el, s) {
+  const b = el.querySelector('.wt');
+  if (s.worktree) {
+    b.textContent = `⎇ ${s.worktree.branch.replace('grid/', '')}`;
+    b.title = `worktree: ${s.worktree.path}\nブランチ: ${s.worktree.branch}\n元のリポジトリ: ${s.worktree.repo}`;
+    b.classList.remove('hide');
+  } else b.classList.add('hide');
+}
+
+function makeModal(title, sub) {
+  const modal = document.createElement('div');
+  modal.id = 'modal';
+  const close = () => { modal.remove(); window.removeEventListener('keydown', onKey, true); };
+  const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing) { e.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+  modal.innerHTML = '<div class="box"><div class="mh"><b></b><span></span><button class="ghost cl">閉じる (Esc)</button></div><div class="body"></div></div>';
+  modal.querySelector('b').textContent = title;
+  modal.querySelector('span').textContent = sub || '';
+  modal.querySelector('.cl').onclick = close;
+  document.body.appendChild(modal);
+  return { modal, body: modal.querySelector('.body'), close };
+}
+
+const hel = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const api = async (url, method = 'GET', body) => {
+  const r = await fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+  const ct = r.headers.get('content-type') || '';
+  return { ok: r.ok, data: ct.includes('json') ? await r.json() : null };
+};
+
+const SUMMARY_PROMPT = 'ここまでの作業を、別のClaudeセッションにそのまま引き継げる形で要約してください。含める項目: 目的 / 決まったこと(理由つき) / 現在の状態 / 次にやること / 重要なファイルパス / 未解決の点。簡潔に、箇条書きで。';
+const SAVE_PROMPT = 'project-savedata の方式に従い、このプロジェクトの STATE.md と LOG.md を更新して保存してください(未作成ならフォルダ直下に作成)。確定した数値・日付は facts.json にも反映してください。';
+
+function showHandoff(t) {
+  const { body, close } = makeModal(`引き継ぎ: ${t.s.name}`, '要約を別のパネルに渡す / 保存を促す');
+  const sec = (title) => { body.appendChild(hel('h3', '', title)); };
+  sec('1. このパネルのClaudeに要約を作らせる');
+  const r1 = hel('div', 'row2');
+  const b1 = hel('button', 'ghost', '要約を依頼する');
+  r1.append(b1, hel('span', 'note', '依頼文を送ります(トークンを使います)'));
+  body.appendChild(r1);
+  sec('2. 返答を取り込む (編集できます)');
+  const r2 = hel('div', 'row2');
+  const b2 = hel('button', 'ghost', '最新の返答を取得');
+  r2.appendChild(b2);
+  const ta = hel('textarea');
+  ta.rows = 10;
+  body.append(r2, ta);
+  sec('3. 渡す先');
+  const r3 = hel('div', 'row2');
+  const sel = hel('select');
+  sel.appendChild(Object.assign(hel('option', '', '新規パネル (同じフォルダ)'), { value: 'new' }));
+  for (const [id, x] of tiles) if (id !== t.s.id) sel.appendChild(Object.assign(hel('option', '', x.s.name), { value: id }));
+  const b3 = hel('button', 'ghost', '入力欄に貼り付ける (送信はしません)');
+  r3.append(sel, b3);
+  body.appendChild(r3);
+  sec('保存を促す');
+  const r4 = hel('div', 'row2');
+  const b4 = hel('button', 'ghost', 'STATE.md / LOG.md に保存させる');
+  r4.append(b4, hel('span', 'note', '/clear の前に押すと、現在地をファイルに残せます'));
+  body.appendChild(r4);
+
+  b1.onclick = async () => { await api(`/api/sessions/${t.s.id}/send`, 'POST', { text: SUMMARY_PROMPT, enter: true }); toast('要約を依頼しました。完了したら「最新の返答を取得」を押してください'); };
+  b2.onclick = async () => {
+    const r = await api(`/api/sessions/${t.s.id}/last`);
+    ta.value = r.data && r.data.text ? r.data.text : '';
+    if (!ta.value) toast('返答が見つかりません');
+  };
+  b3.onclick = async () => {
+    const text = ta.value.trim();
+    if (!text) { toast('渡す内容がありません'); return; }
+    let target = sel.value;
+    if (target === 'new') {
+      const r = await api('/api/sessions', 'POST', { cwd: t.s.cwd, name: `${t.s.name} (引き継ぎ)` });
+      if (!r.ok) { toast(r.data?.error || '作成に失敗しました'); return; }
+      addTile(r.data);
+      target = r.data.id;
+      for (let i = 0; i < 30; i++) {
+        await new Promise((res) => setTimeout(res, 500));
+        const sc = await api(`/api/sessions/${target}/screen`);
+        if (sc.data && /❯|>\s*$/m.test(sc.data.text) && /auto mode|shortcuts|bypass|accept edits/i.test(sc.data.text)) break;
+      }
+    }
+    await api(`/api/sessions/${target}/send`, 'POST', { text: `これは前のセッションからの引き継ぎです。内容を踏まえて、続きから進めてください。\n\n${text}`, enter: false });
+    toast('入力欄に貼り付けました。内容を確認して送信してください');
+    close();
+    focusTile(target);
+  };
+  b4.onclick = async () => { await api(`/api/sessions/${t.s.id}/send`, 'POST', { text: SAVE_PROMPT, enter: true }); toast('保存を依頼しました'); };
+}
+
+const CHECK_PRESETS = [['型チェック (frontend)', 'cd frontend && npx tsc --noEmit'], ['npm test', 'npm test --silent'], ['pytest', 'python -m pytest -q'], ['ビルド', 'npm run build']];
+
+async function showCheck(t) {
+  const { body, modal } = makeModal(`自動チェック: ${t.s.name}`, 'Claudeの作業が終わるたびに自動で実行します (5秒以上動いたあと)');
+  const row = hel('div', 'row2');
+  const inp = hel('input');
+  inp.type = 'text';
+  inp.style.flex = '1';
+  inp.style.minWidth = '260px';
+  inp.placeholder = '実行するコマンド (空にすると自動実行しません)';
+  const save = hel('button', 'ghost', '保存');
+  const run = hel('button', 'ghost', '今すぐ実行');
+  row.append(inp, save, run);
+  const presets = hel('div', 'row2');
+  for (const [l, c] of CHECK_PRESETS) { const b = hel('button', 'chip', l); b.onclick = () => { inp.value = c; }; presets.appendChild(b); }
+  const status = hel('div', 'note');
+  const pre = hel('pre');
+  pre.style.cssText = 'margin:8px 0 0;padding:8px;border:1px solid #333;max-height:50vh;overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;color:#ccc;flex:none';
+  body.append(row, presets, status, pre);
+  const render = async () => {
+    const r = await api(`/api/sessions/${t.s.id}/check`);
+    if (!r.data) return;
+    if (document.activeElement !== inp && !inp.dataset.dirty) inp.value = r.data.cmd || '';
+    const x = r.data.result;
+    status.textContent = r.data.running ? '実行中…' : x ? `${x.ok ? '成功' : `失敗 (終了コード ${x.code})`} / ${(x.ms / 1000).toFixed(1)}秒 / ${new Date(x.at).toLocaleTimeString('ja-JP')}\n$ ${x.cmd}` : 'まだ実行していません';
+    status.style.whiteSpace = 'pre-wrap';
+    status.style.color = r.data.running ? '#facc15' : x ? (x.ok ? '#22c55e' : '#ef4444') : '#777';
+    pre.textContent = x ? x.tail : '';
+  };
+  inp.oninput = () => { inp.dataset.dirty = '1'; };
+  save.onclick = async () => { await api(`/api/sessions/${t.s.id}/check`, 'POST', { cmd: inp.value.trim() }); delete inp.dataset.dirty; toast(inp.value.trim() ? '保存しました' : '自動チェックを解除しました'); };
+  run.onclick = async () => { await api(`/api/sessions/${t.s.id}/check`, 'POST', { cmd: inp.value.trim(), run: true }); delete inp.dataset.dirty; render(); };
+  await render();
+  const timer = setInterval(() => { if (!document.body.contains(modal)) clearInterval(timer); else render(); }, 1500);
+}
+
+async function showSearch() {
+  const { body } = makeModal('履歴を検索', '過去の会話(直近120日)とgitのコミットメッセージ');
+  const row = hel('div', 'row2');
+  const inp = hel('input');
+  inp.type = 'text';
+  inp.style.cssText = 'flex:1;min-width:260px';
+  inp.placeholder = '検索したい言葉 (2文字以上)';
+  const go = hel('button', 'ghost', '検索');
+  row.append(inp, go);
+  const out = hel('div');
+  body.append(row, out);
+  inp.focus();
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const run = async () => {
+    const q = inp.value.trim();
+    if (q.length < 2) return;
+    out.textContent = '検索中…';
+    const r = await api(`/api/search?q=${encodeURIComponent(q)}`);
+    out.replaceChildren();
+    if (!r.data) { out.textContent = '検索に失敗しました'; return; }
+    out.appendChild(hel('h3', '', `会話 (${r.data.conv.length}件)`));
+    const re = new RegExp(esc(q), 'ig');
+    for (const c of r.data.conv) {
+      const row2 = hel('div', 'res');
+      const txt = hel('div');
+      txt.innerHTML = '';
+      let last = 0;
+      c.snippet.replace(re, (m, idx) => { txt.append(document.createTextNode(c.snippet.slice(last, idx))); txt.appendChild(hel('mark', '', m)); last = idx + m.length; return m; });
+      txt.append(document.createTextNode(c.snippet.slice(last)));
+      const meta = hel('div', 'meta', `${c.project} / ${c.role === 'user' ? 'あなた' : 'Claude'} / ${new Date(c.at || c.mtime).toLocaleString('ja-JP')}`);
+      const open = hel('button', 'ghost', 'この会話を開く');
+      open.onclick = async () => {
+        const r2 = await api('/api/sessions', 'POST', { cwd: c.cwd || '', name: `${c.project} (履歴)`, sid: c.sid });
+        if (!r2.ok) { toast('開けませんでした'); return; }
+        addTile(r2.data);
+        focusTile(r2.data.id);
+        toast('会話を再開しました');
+      };
+      const left = hel('div');
+      left.append(txt, meta);
+      row2.append(left, open);
+      out.appendChild(row2);
+    }
+    out.appendChild(hel('h3', '', `コミット (${r.data.commits.length}件)`));
+    for (const c of r.data.commits) {
+      const row2 = hel('div', 'res');
+      row2.append(hel('div', '', `${c.subject}`), hel('div', 'meta', `${c.repo} ${c.hash} ${c.date}`));
+      out.appendChild(row2);
+    }
+    if (!r.data.conv.length && !r.data.commits.length) out.appendChild(hel('div', 'note', '見つかりませんでした'));
+  };
+  go.onclick = run;
+  inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) run(); };
+}
+
+async function showOverview() {
+  const { body, close } = makeModal('一覧', '状態別 (クリックでそのパネルへ)');
+  const order = ['ask', 'run', 'done', 'idle', 'end'];
+  const label = { ask: '確認待ち', run: '実行中', done: '完了', idle: '待機', end: '終了' };
+  const list = [...tiles.values()].sort((a, b) => order.indexOf(a.state || 'idle') - order.indexOf(b.state || 'idle'));
+  for (const t of list) {
+    const row = hel('div', 'ov');
+    const st = hel('span', '', label[t.state || 'idle']);
+    st.className = 'st';
+    st.dataset.s = t.state || 'idle';
+    st.style.color = { ask: '#ef4444', run: '#facc15', done: '#22c55e', end: '#777', idle: '#fff' }[t.state || 'idle'];
+    const nm = hel('span', '', t.s.name);
+    nm.style.fontWeight = '600';
+    const pre = hel('pre', '', '…');
+    row.append(st, nm, pre);
+    row.onclick = () => { close(); focusTile(t.s.id); };
+    body.appendChild(row);
+    api(`/api/sessions/${t.s.id}/screen`).then((r) => {
+      const lines = (r.data?.text || '').split('\n').filter((l) => l.trim() && !/auto mode|shortcuts|OMC|ctx:|5h:/.test(l));
+      pre.textContent = lines.slice(-2).join('\n');
+    });
+  }
+  if (!list.length) body.textContent = 'パネルがありません';
+}
+
+function renderAsk(t, info) {
+  const box = t.el.querySelector('.askbox');
+  const key = info ? JSON.stringify(info) : '';
+  if (t.askKey === key) return;
+  t.askKey = key;
+  box.replaceChildren();
+  box.classList.toggle('hide', !info);
+  if (info) {
+    const pre = document.createElement('pre');
+    pre.textContent = info.question;
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    for (const o of info.options) {
+      const b = document.createElement('button');
+      b.textContent = `${o.n}. ${o.label}`;
+      if (/^no\b/i.test(o.label)) b.className = 'no';
+      b.onclick = () => { t.send({ type: 'input', data: String(o.n) }); t.term.focus(); };
+      opts.appendChild(b);
+    }
+    const esc = document.createElement('button');
+    esc.textContent = 'Esc';
+    esc.onclick = () => { t.send({ type: 'input', data: '\x1b' }); t.term.focus(); };
+    opts.appendChild(esc);
+    box.append(pre, opts);
+  }
+  requestAnimationFrame(() => t.fit());
+}
+
+async function showDiff(id, getName) {
+  const modal = document.createElement('div');
+  modal.id = 'modal';
+  const close = () => { modal.remove(); window.removeEventListener('keydown', onKey, true); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+  modal.innerHTML = '<div class="box"><div class="mh"><b></b><span></span><button class="ghost cl">閉じる (Esc)</button></div><pre>読み込み中…</pre></div>';
+  modal.querySelector('b').textContent = getName();
+  modal.querySelector('.cl').onclick = close;
+  document.body.appendChild(modal);
+  const pre = modal.querySelector('pre');
+  const add = (text, cls) => {
+    const s = document.createElement('span');
+    if (cls) s.className = cls;
+    s.textContent = text + '\n';
+    pre.appendChild(s);
+  };
+  try {
+    const d = await (await fetch(`/api/sessions/${id}/diff`)).json();
+    pre.textContent = '';
+    if (!d.repo) { add('このフォルダはgitリポジトリではありません'); return; }
+    modal.querySelector('span').textContent = d.root;
+    if (!d.status.trim()) { add('変更はありません (HEAD と同じ)'); return; }
+    add('変更ファイル', 'f');
+    d.status.trimEnd().split('\n').forEach((l) => add(l));
+    add('');
+    if (d.stat.trim()) { d.stat.trimEnd().split('\n').forEach((l) => add(l, 'h')); add(''); }
+    const lines = d.diff.split('\n');
+    lines.slice(0, 6000).forEach((l) => {
+      add(l, l.startsWith('diff --git') ? 'f' : l.startsWith('@@') ? 'h' : l.startsWith('+') && !l.startsWith('+++') ? 'a' : l.startsWith('-') && !l.startsWith('---') ? 'd' : '');
+    });
+    if (lines.length > 6000 || d.truncated) add('… 長いので、ここまでを表示しています', 'h');
+    add('※ 未追跡(新規)ファイルの中身は、上の一覧にのみ表示されます', 'h');
+  } catch {
+    pre.textContent = '取得に失敗しました';
+  }
+}
+
+
+const kfmt = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+
+async function showUsage() {
+  const modal = document.createElement('div');
+  modal.id = 'modal';
+  const close = () => { modal.remove(); window.removeEventListener('keydown', onKey, true); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+  modal.innerHTML = '<div class="box"><div class="mh"><b>使用量</b><span>直近14日 / Claude Code全体(このMac)</span><button class="ghost cl">閉じる (Esc)</button></div><div class="body">集計中…</div></div>';
+  modal.querySelector('.cl').onclick = close;
+  document.body.appendChild(modal);
+  const body = modal.querySelector('.body');
+  let d;
+  try { d = await (await fetch('/api/usage?wait=1')).json(); } catch { body.textContent = '取得に失敗しました'; return; }
+  const tot = (a) => a.reduce((x, y) => ({ inp: x.inp + y.inp, out: x.out + y.out, cr: x.cr + y.cr }), { inp: 0, out: 0, cr: 0 });
+  const today = d.days[d.days.length - 1];
+  const wk = tot(d.days.slice(-7));
+  const all = tot(d.days);
+  body.replaceChildren();
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+  const kv = el('div', 'kv');
+  for (const [l, v] of [['今日', today], ['直近7日', wk], ['直近14日', all]]) kv.appendChild(el('div', '', `${l}<b>出力 ${kfmt(v.out)}</b>入力(新規) ${kfmt(v.inp)}`));
+  body.appendChild(kv);
+  body.appendChild(el('h3', '', '日別 (白=出力 / 灰=入力(新規))'));
+  const max = Math.max(1, ...d.days.map((x) => x.inp + x.out));
+  const chart = el('div', 'chart');
+  const xl = el('div', 'xl');
+  for (const x of d.days) {
+    const col = el('div', 'col');
+    col.title = `${x.date}\n出力 ${x.out.toLocaleString()}\n入力(新規) ${x.inp.toLocaleString()}\nキャッシュ読込 ${x.cr.toLocaleString()}`;
+    const o = el('div', 'o'); o.style.height = `${(x.out / max) * 100}%`;
+    const i = el('div', 'i'); i.style.height = `${(x.inp / max) * 100}%`;
+    col.append(o, i);
+    chart.appendChild(col);
+    xl.appendChild(el('span', '', x.date.slice(5).replace('-', '/')));
+  }
+  body.append(chart, xl);
+  body.appendChild(el('h3', '', 'プロジェクト別 (直近7日)'));
+  const pmax = Math.max(1, ...d.byProject.map((p) => p.inp + p.out));
+  for (const p of d.byProject) {
+    const row = el('div', 'brow');
+    row.append(el('span', '', ''), el('div', 'bar2', `<i style="width:${((p.inp + p.out) / pmax) * 100}%"></i>`), el('span', '', `出力 ${kfmt(p.out)} / 入力 ${kfmt(p.inp)}`));
+    row.firstChild.textContent = p.name;
+    body.appendChild(row);
+  }
+  if (!d.byProject.length) body.appendChild(el('div', 'note', 'データがありません'));
+  body.appendChild(el('h3', '', '開いているパネル'));
+  for (const t of tiles.values()) {
+    const row = el('div', 'brow');
+    row.append(el('span', '', ''), el('span', '', ''), el('span', '', ''));
+    row.children[0].textContent = t.s.name;
+    row.children[2].textContent = t.tok && t.tok.ctx ? `ctx ${kfmt(t.tok.ctx)} / 出力 ${kfmt(t.tok.out)}` : '—';
+    body.appendChild(row);
+  }
+  body.appendChild(el('div', 'note', '入力(新規)＝新規入力＋キャッシュ作成。キャッシュ読込は除外(別枠・かなり大きな数字になります)。料金は出していません。'));
+}
+
+async function loadSets() {
+  const list = await (await fetch('/api/sets')).json();
+  const box = $('setlist');
+  box.replaceChildren();
+  for (const x of list) {
+    const row = document.createElement('div');
+    row.innerHTML = '<span></span><small></small><button class="ghost op">開く</button><button class="ghost rm2">削除</button>';
+    row.children[0].textContent = x.name;
+    row.children[1].textContent = `${x.count}個`;
+    row.querySelector('.op').onclick = async () => {
+      const r = await (await fetch('/api/sets/restore', { method: 'POST', body: JSON.stringify({ name: x.name }) })).json();
+      for (const c of r.created) {
+        if (c.theme) store.set(`theme:${c.id}`, c.theme);
+        addTile(c);
+      }
+      $('setmsg').textContent = `${r.created.length}個を開きました${r.skipped ? ` / ${r.skipped}個は起動中のためスキップ` : ''}`;
+      if (r.created[0]) focusTile(r.created[0].id);
+    };
+    row.querySelector('.rm2').onclick = async () => {
+      if (!(await confirmBox(`セット「${x.name}」を削除しますか？`))) return;
+      await fetch(`/api/sets?name=${encodeURIComponent(x.name)}`, { method: 'DELETE' });
+      loadSets();
+    };
+    box.appendChild(row);
+  }
+  if (!list.length) box.textContent = '保存したセットはありません';
+}
+$('setsbtn').onclick = (e) => { e.stopPropagation(); $('sets').classList.toggle('hide'); $('setmsg').textContent = ''; loadSets(); };
+window.addEventListener('click', (e) => { if (!e.target.closest('#sets') && !e.target.closest('#setsbtn')) $('sets').classList.add('hide'); });
+$('setsave').onclick = async () => {
+  const name = $('setname').value.trim();
+  if (!name) return;
+  const themes = {};
+  tiles.forEach((t, id) => { themes[id] = tileThemeName(id); });
+  await fetch('/api/sets', { method: 'POST', body: JSON.stringify({ name, themes }) });
+  $('setname').value = '';
+  $('setmsg').textContent = `「${name}」を保存しました (${tiles.size}個)`;
+  loadSets();
+};
+$('setname').onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) $('setsave').click(); };
+$('usebtn').onclick = showUsage;
+
+async function poll() {
+  try {
+    const list = await (await fetch('/api/sessions')).json();
+    for (const s of list) {
+      const t = tiles.get(s.id);
+      if (!t) continue;
+      const running = s.alive && s.busyAgoMs < 2500;
+      if (running && !t.running) t.runSince = Date.now();
+      if (!running && t.running && Date.now() - t.runSince > 1500 && !t.el.classList.contains('focus')) {
+        t.el.classList.add('done');
+        updateTitle();
+        if (notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」が待機状態になりました` });
+      }
+      t.running = running;
+      t.ask = s.ask;
+      t.tok = s.tok;
+      t.tk.textContent = [s.hud.model, s.hud.ctxPct != null ? `ctx ${s.hud.ctxPct}%` : s.tok.ctx ? `ctx ${fmt(s.tok.ctx)}` : '', s.tok.ctx ? `出力 ${fmt(s.tok.out)}` : ''].filter(Boolean).join(' · ');
+      t.tk.style.color = s.hud.ctxPct >= 80 ? '#ef4444' : '';
+      t.tk.title = `コンテキスト ${s.tok.ctx.toLocaleString()} / 入力(新規) ${s.tok.inp.toLocaleString()} / 出力 ${s.tok.out.toLocaleString()}`;
+      t.s.worktree = s.worktree;
+      setWorktreeBadge(t.el, s);
+      t.sh.textContent = '⚠ 同フォルダ';
+      t.sh.title = `同じフォルダで、他に${s.shared}個のClaudeが動いています。同じファイルを同時に書き換えると衝突します。worktreeでの作成をおすすめします。`;
+      t.sh.classList.toggle('hide', !(s.shared > 0));
+      const anKey = s.anoms.join(',');
+      t.an.textContent = `⚠ ${s.anoms.join(' / ')}`;
+      t.an.classList.toggle('hide', !s.anoms.length);
+      if (anKey && anKey !== t.anKey && notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」: ${s.anoms.join(' / ')}` });
+      t.anKey = anKey;
+      t.cs.classList.toggle('hide', !s.check);
+      t.cs.dataset.s = s.checkState;
+      t.cs.textContent = { run: 'チェック中', ok: '✓ チェック', ng: '✗ チェック' }[s.checkState] || 'チェック';
+      if (t.prevCheck === 'run' && s.checkState === 'ng' && notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」: 自動チェックが失敗しました` });
+      t.prevCheck = s.checkState;
+      if (s.busySince) {
+        const sec = Math.max(0, Math.floor((Date.now() - s.busySince) / 1000));
+        t.elapsed.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+        t.elapsed.classList.remove('hide');
+      } else t.elapsed.classList.add('hide');
+      const state = !s.alive ? 'end' : running ? 'run' : s.ask ? 'ask' : t.el.classList.contains('done') ? 'done' : 'idle';
+      t.state = state;
+      t.st.dataset.s = state;
+      t.el.dataset.state = state;
+      const prev = t.prevState;
+      t.prevState = state;
+      renderAsk(t, state === 'ask' ? s.askInfo : null);
+      if (state === 'ask' && prev !== 'ask' && notifyOn && (!document.hasFocus() || !t.el.classList.contains('focus'))) {
+        new Notification('CC Grid', { body: `「${t.s.name}」が確認を求めています\n${(s.askInfo?.question || '').split('\n').filter(Boolean).slice(0, 2).join(' ')}` });
+      }
+      t.st.textContent = { end: '終了', run: '実行中', ask: '確認待ち', done: '完了', idle: '待機' }[state];
+    }
+    renderPager(pgCount, pageInfo().perPage);
+    const c = (k) => [...tiles.values()].filter((t) => t.state === k).length;
+    const parts = [['run', '実行中'], ['ask', '確認待ち'], ['done', '完了']].map(([k, l]) => c(k) && `${l} ${c(k)}`).filter(Boolean);
+    const nan = list.filter((s) => s.anoms.length).length;
+    if (nan) parts.push(`異常 ${nan}`);
+    const withHud = list.map((s) => s.hud).filter((x) => x.h5 || x.wk);
+    const lim = withHud[withHud.length - 1];
+    const part = (l, v) => (v ? `${l} ${v.pct}%${v.reset ? ` (${v.reset})` : ''}` : '');
+    for (const [id, l, v] of [['l5', '5h', lim && lim.h5], ['lw', '週', lim && lim.wk]]) {
+      $(id).textContent = part(l, v);
+      $(id).style.color = v && v.pct >= 80 ? '#ef4444' : v && v.pct >= 60 ? '#facc15' : '';
+    }
+    const tin = list.reduce((a, s) => a + s.tok.inp, 0);
+    const tout = list.reduce((a, s) => a + s.tok.out, 0);
+    $('sum').textContent = [...parts, `トークン 入力 ${fmt(tin)} / 出力 ${fmt(tout)}`].join('  |  ');
+  } catch {}
+}
+
+let wtOn = store.get('wt', '0') === '1';
+$('wtbtn').classList.toggle('on', wtOn);
+$('wtbtn').onclick = () => { wtOn = !wtOn; store.set('wt', wtOn ? '1' : '0'); $('wtbtn').classList.toggle('on', wtOn); toast(wtOn ? '新規パネルはworktree(別ブランチの作業コピー)で作ります' : 'worktreeをオフにしました'); };
+$('add').onclick = async () => {
+  const cwd = $('cwd').value.trim();
+  const name = $('name').value.trim();
+  const r = await api('/api/sessions', 'POST', { cwd, name, worktree: wtOn });
+  if (!r.ok) { toast(r.data?.error || '作成に失敗しました'); return; }
+  addTile(r.data);
+  focusTile(r.data.id);
+  $('name').value = '';
+  if (r.data.worktree) toast(`worktreeを作りました: ${r.data.worktree.path}`);
+};
+$('ovbtn').onclick = showOverview;
+$('srbtn').onclick = showSearch;
+$('rdbtn').onclick = () => { const on = document.body.classList.toggle('reorder'); $('rdbtn').classList.toggle('on', on); if (on) toast('パネル左上の ⋮⋮ をドラッグして、並べたい位置のパネルへ落としてください'); };
+$('cwd').onkeydown = $('name').onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) $('add').click(); };
+$('cols').onchange = (e) => { colsPref = Number(e.target.value); store.set('cols', colsPref); layout(); };
+$('theme').onchange = (e) => { themeName = e.target.value; store.set('theme', themeName); applyTheme(); };
+$('ss').value = String(scrollSpeed);
+$('ss').onchange = (e) => {
+  scrollSpeed = Number(e.target.value);
+  store.set('ss', scrollSpeed);
+  tiles.forEach((t) => { t.term.options.scrollSensitivity = scrollSpeed; });
+};
+$('fs').onchange = (e) => {
+  fontSize = Number(e.target.value);
+  store.set('fs', fontSize);
+  tiles.forEach((t) => { t.term.options.fontSize = fontSize; });
+  layout();
+};
+$('selall').onclick = () => {
+  const all = checked().length === tiles.size;
+  tiles.forEach((t) => { t.el.querySelector('.ck').checked = !all; });
+  updateSel();
+};
+$('delsel').onclick = async () => {
+  const sel = checked();
+  if (!sel.length) return;
+  const names = sel.map(([, t]) => `「${t.s.name}」`).join('、');
+  if (await confirmBox(`${sel.length}件のパネルを終了して削除しますか？\n${names}\n(削除後15秒は元に戻せます)`)) await deleteTiles(sel.map(([id]) => id));
+};
+$('notif').onclick = async () => {
+  if (!notifyOn && Notification.permission !== 'granted') await Notification.requestPermission();
+  notifyOn = !notifyOn && Notification.permission === 'granted';
+  store.set('notif', notifyOn ? '1' : '0');
+  renderNotif();
+};
+window.addEventListener('keydown', (e) => {
+  if (!e.altKey || e.code !== 'Tab' || !tiles.size) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const ids = [...tiles.keys()];
+  const cur = ids.findIndex((id) => tiles.get(id).el.classList.contains('focus'));
+  focusTile(ids[(cur + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]);
+}, true);
+window.addEventListener('keydown', (e) => {
+  const m = e.altKey && e.code.match(/^Digit([1-9])$/);
+  if (!m) return;
+  e.preventDefault();
+  const id = [...tiles.keys()][Number(m[1]) - 1];
+  if (id) focusTile(id);
+});
+$('prev').onclick = () => { page--; layout(); };
+$('next').onclick = () => { page++; layout(); };
+window.addEventListener('resize', layout);
+applyTheme();
+fetch('/api/sessions').then((r) => r.json()).then((l) => {
+  let saved = [];
+  try { saved = JSON.parse(store.get('order', '[]')); } catch {}
+  const rank = (id) => { const i = saved.indexOf(id); return i === -1 ? 1e6 + Number(id) : i; };
+  l.sort((a, b) => rank(a.id) - rank(b.id)).forEach(addTile);
+  layout();
+});
+fetch('/api/dirs').then((r) => r.json()).then((l) => {
+  $('dirs').replaceChildren(...l.map((d) => Object.assign(document.createElement('option'), { value: d })));
+});
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

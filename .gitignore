@@ -1,0 +1,12 @@
+node_modules/
+.omc/
+.DS_Store
+.env
+.remote-token
+.audit.log
+.audit.log.1
+server.log
+sessions.json
+sessions.json.tmp
+sets.json
+.backup/

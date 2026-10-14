@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CC Grid</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: #fff; font: 15px -apple-system, "Hiragino Sans", sans-serif; padding: 10px; }
+  h1 { font-size: 14px; margin: 4px 0 10px; color: #aaa; font-weight: 600; }
+  .card { border: 1px solid #333; margin-bottom: 10px; padding: 10px; border-radius: 2px; }
+  .card[data-s="ask"] { border-color: #ef4444; } .card[data-s="run"] { border-color: #facc15; } .card[data-s="done"] { border-color: #22c55e; }
+  .top { display: flex; gap: 8px; align-items: baseline; }
+  .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st { font-size: 12px; color: #aaa; }
+  .card[data-s="ask"] .st { color: #ef4444; } .card[data-s="run"] .st { color: #facc15; } .card[data-s="done"] .st { color: #22c55e; }
+  pre { margin: 8px 0 0; padding: 8px; background: #0a0a0a; border: 1px solid #222; font: 11px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; color: #ccc; }
+  .opts { display: grid; gap: 8px; margin-top: 10px; }
+  button { background: #000; color: #fff; border: 1px solid #fff; padding: 12px; font: inherit; border-radius: 2px; text-align: left; }
+  button.no { border-color: #ef4444; color: #ef4444; }
+  button.ghost { border-color: #444; color: #aaa; padding: 6px 10px; font-size: 12px; margin-top: 8px; }
+  .note { color: #666; font-size: 12px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<h1>CC GRID (承認のみ)</h1>
+<div id="list"></div>
+<div class="note">ここでできるのは、確認待ちへの回答と、画面の確認だけです。選択肢の内容をよく読んでから押してください。</div>
+<script>
+const list = document.getElementById('list');
+const labels = { ask: '確認待ち', run: '実行中', done: '完了', idle: '待機', end: '終了' };
+const open = new Set();
+const keep = new Map();
+
+function stateOf(s) {
+  if (!s.alive) return 'end';
+  if (s.busyAgoMs < 2500) return 'run';
+  if (s.ask) return 'ask';
+  return 'idle';
+}
+
+async function key(id, k, fp) {
+  const r = await fetch(`/api/sessions/${id}/key`, { method: 'POST', body: JSON.stringify({ key: k, fp }) });
+  if (!r.ok) {
+    let msg = '送れませんでした';
+    try { msg = (await r.json()).reason || msg; } catch {}
+    alert(msg);
+  }
+  load();
+}
+
+async function load() {
+  let data;
+  try { data = await (await fetch('/api/sessions')).json(); } catch { return; }
+  const order = ['ask', 'run', 'idle', 'end'];
+  data.sort((a, b) => order.indexOf(stateOf(a)) - order.indexOf(stateOf(b)));
+  const frag = document.createDocumentFragment();
+  for (const s of data) {
+    const st = stateOf(s);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.s = st;
+    const top = document.createElement('div');
+    top.className = 'top';
+    const nm = document.createElement('span');
+    nm.className = 'name';
+    nm.textContent = s.name;
+    const sl = document.createElement('span');
+    sl.className = 'st';
+    sl.textContent = labels[st] + (s.anoms.length ? ` / ⚠ ${s.anoms.join(' / ')}` : '');
+    top.append(nm, sl);
+    card.appendChild(top);
+    if (st === 'ask' && s.askInfo) {
+      const q = document.createElement('pre');
+      q.textContent = s.askInfo.question;
+      card.appendChild(q);
+      const opts = document.createElement('div');
+      opts.className = 'opts';
+      for (const o of s.askInfo.options) {
+        const b = document.createElement('button');
+        b.textContent = `${o.n}. ${o.label}`;
+        if (/^no\b/i.test(o.label)) b.className = 'no';
+        if (o.locked) { b.disabled = true; b.textContent += ' (PCでのみ)'; b.style.opacity = '.4'; }
+        b.onclick = () => key(s.id, String(o.n), s.askInfo.fp);
+        opts.appendChild(b);
+      }
+      const esc = document.createElement('button');
+      esc.textContent = 'Esc (キャンセル)';
+      esc.onclick = () => key(s.id, 'esc', s.askInfo.fp);
+      opts.appendChild(esc);
+      card.appendChild(opts);
+    }
+    const tg = document.createElement('button');
+    tg.className = 'ghost';
+    tg.textContent = open.has(s.id) ? '画面を閉じる' : '画面を見る';
+    tg.onclick = () => { open.has(s.id) ? open.delete(s.id) : open.add(s.id); load(); };
+    card.appendChild(tg);
+    if (open.has(s.id)) {
+      const pre = document.createElement('pre');
+      pre.textContent = keep.get(s.id) || '読み込み中…';
+      card.appendChild(pre);
+      fetch(`/api/sessions/${s.id}/screen`).then((r) => r.json()).then((d) => { keep.set(s.id, d.text); pre.textContent = d.text; });
+    }
+    frag.appendChild(card);
+  }
+  list.replaceChildren(frag);
+}
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>
