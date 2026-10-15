@@ -21,6 +21,7 @@ Details that do not fit in the [README](../README.md).
 | `CC_GRID_WORKTREES` | `~/.cc-grid/worktrees` | Where git worktrees are created |
 | `CC_GRID_REMOTE` | unset | Set to `1` to enable remote (LAN) mode. `npm run start:remote` does this |
 | `CC_GRID_BIND` | `0.0.0.0` | Bind address in remote mode. Local mode always binds `127.0.0.1` |
+| `CC_GRID_LANG` | `en` | Initial UI language (`en` or `ja`) |
 
 Hidden folders (names starting with `.`) are not offered as project choices.
 
@@ -47,6 +48,14 @@ The UI is a thin client over a small JSON API. It is **not a stable public API**
 | `POST /api/sets` | Save the open panels as a layout. Body: `name`, `themes` |
 | `DELETE /api/sets?name=...` | Delete a layout |
 | `POST /api/sets/restore` | Restore a layout. Body: `name`. Returns `created` and `skipped` |
+| `GET /api/tasks` | Per session: pending question and options, todo items, last prompt and reply. Local only |
+| `GET /api/today` | Today's prompts and reply counts per session, plus to-dos completed today. Local only |
+| `GET /api/todos` | List to-dos |
+| `POST /api/todos` | Add a to-do. Body: `text`, `panel` |
+| `POST /api/todos/:id` | Update a to-do. Body: `done` and/or `text` |
+| `DELETE /api/todos/:id` | Delete a to-do |
+| `GET /api/settings` | Read settings (`autoSave`, `lang`) |
+| `POST /api/settings` | Change settings. Body: `autoSave` (`0`, `70`, `80`, `90`) and/or `lang` (`en`, `ja`) |
 | `GET /api/usage` | Token usage summary (`?wait=1` waits for the log scan) |
 | `GET /api/search?q=...` | Search conversations and commits. Needs 2 or more characters |
 | `GET /api/dirs` | Project folders offered in the UI |
@@ -59,6 +68,8 @@ The UI is a thin client over a small JSON API. It is **not a stable public API**
 | --- | --- | --- |
 | `sessions.json` | Sessions to bring back after a restart | |
 | `sets.json` | Saved layouts | |
+| `todos.json` | To-do list (`todos.json.bak` is the previous version) | |
+| `settings.json` | Auto-save threshold and UI language | |
 | `.audit.log` | Create, delete, undo, key, check actions | mode `0600` |
 | `.remote-token` | Remote-mode token | mode `0600` |
 | `.backup/` | Backups of the files above | |

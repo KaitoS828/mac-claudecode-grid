@@ -73,7 +73,7 @@ function create({ cwd, name, cmd, id: fixedId, sid: oldSid, worktree, check }) {
   });
   term.onExit(() => {
     s.alive = false;
-    for (const ws of s.clients) ws.send('\r\n\x1b[90m[プロセス終了]\x1b[0m\r\n');
+    for (const ws of s.clients) ws.send(`\r\n\x1b[90m[${settings.lang === 'en' ? 'process exited' : 'プロセス終了'}]\x1b[0m\r\n`);
   });
   sessions.set(id, s);
   save('create');
@@ -97,7 +97,7 @@ function findLog(s) {
 function tokens(s) {
   const p = findLog(s);
   if (!p) return { ctx: 0, out: 0, inp: 0 };
-  const t = s.tok || (s.tok = { off: 0, byId: new Map(), last: null, tools: [], prompts: [], seen: new Set() });
+  const t = s.tok || (s.tok = { off: 0, byId: new Map(), last: null, tools: [], prompts: [], seen: new Set(), todos: null, asst: '', asstAt: 0, userAt: 0 });
   const size = fs.statSync(p).size;
   if (size > t.off) {
     const fd = fs.openSync(p, 'r');
@@ -115,6 +115,8 @@ function tokens(s) {
         if (m && m.usage && m.id) { t.byId.set(m.id, m.usage); t.last = m.id; }
         if (m && Array.isArray(m.content) && j.type === 'assistant') {
           for (const c of m.content) {
+            if (c.type === 'text' && c.text && c.text.trim()) { t.asst = c.text.trim().slice(-600); t.asstAt = Date.parse(j.timestamp) || t.asstAt; }
+            if (c.type === 'tool_use' && c.name === 'TodoWrite' && Array.isArray(c.input && c.input.todos)) t.todos = c.input.todos.map((x) => ({ text: String(x.content || '').slice(0, 160), status: x.status }));
             if (c.type === 'tool_use' && c.id && !t.seen.has(c.id)) {
               t.seen.add(c.id);
               t.tools.push(`${c.name}:${JSON.stringify(c.input).slice(0, 300)}`);
@@ -125,7 +127,7 @@ function tokens(s) {
         if (j.type === 'user' && !j.isMeta && j.uuid && !t.seen.has(j.uuid) && m) {
           t.seen.add(j.uuid);
           const txt = typeof m.content === 'string' ? m.content : Array.isArray(m.content) && m.content.every((c) => c.type === 'text') ? m.content.map((c) => c.text).join('') : '';
-          if (txt.trim().length > 4) { t.prompts.push(txt.trim().slice(0, 200)); if (t.prompts.length > 8) t.prompts.shift(); }
+          if (txt.trim().length > 4) { t.userAt = Date.parse(j.timestamp) || t.userAt; t.prompts.push(txt.trim().slice(0, 200)); if (t.prompts.length > 8) t.prompts.shift(); }
         }
       } catch {}
     }
@@ -236,6 +238,17 @@ function usageSummary() {
   return { days, byProject, scanning: !!scanning };
 }
 
+const TODOS = path.join(__dirname, 'todos.json');
+const readTodos = () => { try { return JSON.parse(fs.readFileSync(TODOS, 'utf8')); } catch { return []; } };
+const writeTodos = (l) => {
+  try { fs.copyFileSync(TODOS, `${TODOS}.bak`); } catch {}
+  fs.writeFileSync(`${TODOS}.tmp`, JSON.stringify(l, null, 1), { mode: 0o600 });
+  fs.renameSync(`${TODOS}.tmp`, TODOS);
+};
+const SETTINGS = path.join(__dirname, 'settings.json');
+let settings = { autoSave: 0, lang: process.env.CC_GRID_LANG === 'ja' ? 'ja' : 'en' };
+try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch {}
+const AUTO_PROMPTS = { en: 'Context is running low. So that work can resume after an interruption, update STATE.md (current status, next steps, open questions) and LOG.md (what was done, decisions made) at the project root and save them. Then wait without starting new work.', ja: 'コンテキストが残り少なくなっています。作業が途切れても再開できるよう、プロジェクト直下の STATE.md(現在地・次にやること・未解決)と LOG.md(今回やったこと・決めたこと)を更新して保存してください。保存したら、新しい作業は始めずに待機してください。' };
 const SETS = path.join(__dirname, 'sets.json');
 const readSets = () => { try { return JSON.parse(fs.readFileSync(SETS, 'utf8')); } catch { return []; } };
 const writeSets = (l) => fs.writeFileSync(SETS, JSON.stringify(l, null, 1), { mode: 0o600 });
@@ -342,6 +355,17 @@ function tick() {
       if (lp && t.prompts.slice(-6).filter((x) => x === lp).length >= 3) anoms.push('同じ指示を反復');
     }
     s.anoms = anoms;
+    if (settings.autoSave && !busyNow && !s.wasBusy && s.cwd !== os.homedir()) {
+      const c = hud(s).ctxPct;
+      if (c != null && c < 50) s.autoSaved = 0;
+      else if (c != null && c >= settings.autoSave && !s.autoSaved && !askInfo(s)) {
+        s.autoSaved = now;
+        s.autoSavedAt = now;
+        s.autoSaveCtx = c;
+        sendText(s, AUTO_PROMPTS[settings.lang] || AUTO_PROMPTS.en, true);
+        audit('auto-save', `${s.id} ctx=${c}%`);
+      }
+    }
   }
 }
 setInterval(tick, 1000);
@@ -481,6 +505,7 @@ const pub = (s) => {
     worktree: s.worktree || null, shared: s.worktree ? 0 : shared,
     check: s.check || '', checkState: s.checking ? 'run' : s.checkResult ? (s.checkResult.ok ? 'ok' : 'ng') : '',
     anoms: s.anoms || [], busySince: s.wasBusy ? s.busySince : 0, lastDoneAt: s.lastDoneAt || 0,
+    autoSavedAt: s.autoSavedAt || 0, autoSaveCtx: s.autoSaveCtx || 0,
   };
 };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -489,7 +514,7 @@ function serveFile(res, file) {
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
-    res.end(data);
+    res.end(path.extname(file) === '.html' ? data.toString().replace(/__DEFAULT_LANG__/g, settings.lang) : data);
   });
 }
 
@@ -579,6 +604,19 @@ const server = http.createServer({ maxHeaderSize: 262144 }, async (req, res) => 
   const remote = !g.local;
 
   if (P === '/m' && M === 'GET') return serveFile(res, path.join(__dirname, 'public', 'm.html'));
+  if (P === '/api/tasks' && M === 'GET') {
+    return json(res, [...sessions.values()].filter((x) => !x.trash).map((s) => {
+      tokens(s);
+      const t = s.tok || {};
+      const info = askInfo(s);
+      return {
+        id: s.id, name: s.name, cwd: s.cwd, alive: s.alive, busy: Date.now() - s.busy < 2500, ask: info ? ((info.question.split('\n').map((l) => l.trim()).filter((l) => /[?？]$/.test(l)).pop()) || info.question.split('\n').map((l) => l.trim()).filter((l) => l && !/^□/.test(l)).pop() || '').slice(0, 120) : '', options: info ? info.options.map((o) => o.title.slice(0, 60)) : [],
+        todos: t.todos || [], lastPrompt: (t.prompts || []).slice(-1)[0] || '', lastReply: t.asst || '', screenTail: t.asst ? '' : screenLines(s).filter((l) => l.trim() && !/auto mode|shortcuts|OMC|ctx:|5h:|Esc to cancel|Enter to select|^[\s─━═]+$/.test(l)).slice(-5).join('\n'),
+        userAt: t.userAt || 0, replyAt: t.asstAt || 0, anoms: s.anoms || [],
+        check: s.checkResult ? { ok: s.checkResult.ok } : null, lastDoneAt: s.lastDoneAt || 0,
+      };
+    }));
+  }
   if (P === '/api/sessions' && M === 'GET') return json(res, [...sessions.values()].filter((x) => !x.trash).map(remote ? pubRemote : pub));
 
   if (P === '/api/sessions' && M === 'POST') {
@@ -617,6 +655,78 @@ const server = http.createServer({ maxHeaderSize: 262144 }, async (req, res) => 
     return;
   }
 
+  if (P === '/api/settings') {
+    if (M === 'GET') return json(res, settings);
+    if (M === 'POST') {
+      const b = await readBody(req);
+      if ([0, 70, 80, 90].includes(b.autoSave)) settings.autoSave = b.autoSave;
+      if (['en', 'ja'].includes(b.lang)) settings.lang = b.lang;
+      fs.writeFileSync(SETTINGS, JSON.stringify(settings), { mode: 0o600 });
+      audit('settings', `autoSave=${settings.autoSave} lang=${settings.lang}`);
+      return json(res, settings);
+    }
+  }
+  if (P === '/api/today' && M === 'GET') {
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const start = d0.getTime();
+    const days = new Set([new Date(start).toISOString().slice(0, 10), new Date().toISOString().slice(0, 10)]);
+    const out = [];
+    for (const s of sessions.values()) {
+      if (s.trash) continue;
+      const p = findLog(s);
+      const r = { id: s.id, name: s.name, prompts: [], turns: 0, first: 0, last: 0 };
+      if (p) {
+        const ids = new Set();
+        const rl = require('readline').createInterface({ input: fs.createReadStream(p, { encoding: 'utf8' }), crlfDelay: Infinity });
+        for await (const line of rl) {
+          const i = line.indexOf('"timestamp":"');
+          if (i === -1 || !days.has(line.slice(i + 13, i + 23))) continue;
+          let j; try { j = JSON.parse(line); } catch { continue; }
+          const at = Date.parse(j.timestamp);
+          if (!(at >= start)) continue;
+          const m = j.message;
+          if (!m) continue;
+          if (j.type === 'assistant' && m.id) ids.add(m.id);
+          if (j.type === 'user' && !j.isMeta) {
+            const txt = typeof m.content === 'string' ? m.content : Array.isArray(m.content) && m.content.every((c) => c.type === 'text') ? m.content.map((c) => c.text).join('') : '';
+            if (txt.trim().length > 4 && !/^<(command|local-command|system)/.test(txt.trim())) r.prompts.push({ at, text: txt.trim().slice(0, 120) });
+          }
+          if (!r.first || at < r.first) r.first = at;
+          if (at > r.last) r.last = at;
+        }
+        r.turns = ids.size;
+      }
+      if (r.prompts.length || r.turns) out.push(r);
+    }
+    out.sort((a, b) => b.last - a.last);
+    return json(res, { start, panels: out, done: readTodos().filter((t) => t.done && t.doneAt >= start) });
+  }
+  if (P === '/api/todos' && M === 'GET') return json(res, readTodos());
+  if (P === '/api/todos' && M === 'POST') {
+    const b = await readBody(req);
+    const text = String(b.text || '').trim().slice(0, 300);
+    if (!text) { res.writeHead(400); return res.end(); }
+    const l = readTodos();
+    if (l.length >= 500) { res.writeHead(400); return res.end(); }
+    const t = { id: randomBytes(6).toString('hex'), text, panel: String(b.panel || '').slice(0, 60), done: false, created: Date.now(), doneAt: 0 };
+    writeTodos([...l, t]);
+    audit('todo-add', t.id);
+    return json(res, t, 201);
+  }
+  const tm = P.match(/^\/api\/todos\/([0-9a-f]{12})$/);
+  if (tm) {
+    const l = readTodos();
+    const t = l.find((x) => x.id === tm[1]);
+    if (!t) { res.writeHead(404); return res.end(); }
+    if (M === 'DELETE') { writeTodos(l.filter((x) => x !== t)); audit('todo-delete', t.id); res.writeHead(204); return res.end(); }
+    if (M === 'POST') {
+      const b = await readBody(req);
+      if (typeof b.done === 'boolean') { t.done = b.done; t.doneAt = b.done ? Date.now() : 0; }
+      if (typeof b.text === 'string' && b.text.trim()) t.text = b.text.trim().slice(0, 300);
+      writeTodos(l);
+      return json(res, t);
+    }
+  }
   if (P === '/api/sets') {
     if (M === 'GET') return json(res, readSets().map((x) => ({ name: x.name, count: x.panels.length, saved: x.saved })));
     if (M === 'DELETE') {
@@ -682,7 +792,7 @@ const server = http.createServer({ maxHeaderSize: 262144 }, async (req, res) => 
       res.writeHead(204); return res.end();
     }
     if (!act && M === 'DELETE') {
-      audit('delete', `${s.id} ${s.cwd} (15秒は元に戻せます)`, req);
+      audit('delete', `${s.id} ${s.cwd} (undo within 15s)`, req);
       if (!s.trash) {
         s.trash = Date.now();
         s.trashTimer = setTimeout(() => {
@@ -801,6 +911,6 @@ scanAll();
 server.listen(PORT, REMOTE ? BIND : '127.0.0.1', () => {
   console.log(`cc-grid: http://127.0.0.1:${PORT}`);
   if (REMOTE) {
-    for (const list of Object.values(os.networkInterfaces())) for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`remote (スマホ用・起動のたびに変わります): http://${a.address}:${PORT}/m?t=${REMOTE_TOKEN}`);
+    for (const list of Object.values(os.networkInterfaces())) for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`remote (for phones; changes on every launch): http://${a.address}:${PORT}/m?t=${REMOTE_TOKEN}`);
   }
 });

@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-lang="__DEFAULT_LANG__">
 <head>
 <meta charset="utf-8">
+<script src="/i18n.js"></script>
 <title>CC Grid</title>
 <link rel="icon" href="/logo.svg">
 <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
@@ -134,6 +135,21 @@
   #modal .res { border-bottom: 1px solid #222; padding: 6px 0; font-size: 12px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
   #modal .res .meta { color: #777; font-size: 11px; } #modal .res mark { background: #fff; color: #000; }
   #modal .ov { display: grid; grid-template-columns: 90px 160px 1fr; gap: 10px; padding: 6px 4px; border-bottom: 1px solid #222; cursor: pointer; font-size: 12px; }
+  #modal .tk { border-bottom: 1px solid #222; padding: 6px 4px; font-size: 12px; cursor: pointer; }
+  #modal .tk:hover { background: #111; }
+  #modal .tk .h { display: flex; gap: 10px; align-items: baseline; } #modal .tk .h b { font-size: 13px; }
+  #modal .tk .why { white-space: nowrap; color: #facc15; } #modal .tk .why.ask { color: #ef4444; } #modal .tk .why.ok { color: #22c55e; } #modal .tk .why.end { color: #777; }
+  #modal .tk .sm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; } #modal .tk .ag { color: #666; white-space: nowrap; }
+  #modal .tk .q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #modal .tdbox { border-bottom: 1px solid #444; padding: 4px 4px 10px; margin-bottom: 4px; }
+  #modal .tdh { font-size: 12px; color: #aaa; margin-bottom: 6px; }
+  #modal .tdin { width: 100%; box-sizing: border-box; margin-bottom: 6px; }
+  #modal .td { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
+  #modal .td .tt { flex: 1; min-width: 0; overflow-wrap: anywhere; } #modal .td .tp { color: #666; font-size: 11px; }
+  #modal .td.dn .tt { color: #666; text-decoration: line-through; }
+  #modal .td button, #modal .tk .kp { padding: 0 6px; font-size: 11px; }
+  #modal .tk ul { margin: 4px 0 0; padding-left: 16px; color: #ccc; } #modal .tk li.ip { color: #facc15; }
+  #modal .tk .q { color: #888; margin-top: 4px; white-space: pre-wrap; word-break: break-all; } #modal .tk .q i { color: #666; font-style: normal; }
   #modal .ov:hover { background: #111; } #modal .ov pre { margin: 0; padding: 0; overflow: hidden; max-height: 3em; color: #888; flex: none; font-size: 11px; }
   .ck { accent-color: #fff; margin: 0; cursor: pointer; }
   button:disabled { opacity: .4; cursor: default; }
@@ -153,6 +169,8 @@
   <span id="sum"></span>
   <span class="sp"></span>
   <button id="wtbtn" class="ic" title="新規パネルをworktreeで作る (同じフォルダでの衝突を避ける)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="6" r="1.5"/><path d="M4.5 5v6M11.5 7.5c0 2.5-3 2-7 4"/></svg></button>
+  <button id="bcbtn" class="ic" title="一斉送信 (選んだパネルに同じ指示を送る)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h6M6 4.5L9.5 8 6 11.5M12 3v10M14 5v6"/></svg></button>
+  <button id="tkbtn" class="ic" title="タスク (残りと止まっている理由)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2.5" y="2.5" width="11" height="11"/><path d="M5 6l1 1 2-2M5 10.5l1 1 2-2M9.5 6.5h2M9.5 11h2"/></svg></button>
   <button id="ovbtn" class="ic" title="一覧 (状態別)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 3.5h11M2.5 8h11M2.5 12.5h11"/></svg></button>
   <button id="srbtn" class="ic" title="履歴を検索"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg></button>
   <button id="rdbtn" class="ic" title="並び替え"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 13V3M5 3L2.5 5.5M5 3l2.5 2.5M11 3v10M11 13l-2.5-2.5M11 13l2.5-2.5"/></svg></button>
@@ -171,9 +189,12 @@
   <span id="setwrap">
     <button id="setbtn" class="ic" title="設定"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg></button>
     <div id="settings" class="hide">
+      <label>言語<select id="lang"><option value="en">English</option><option value="ja">日本語</option></select></label>
       <label>テーマ<select id="theme"></select></label>
       <label>列数<select id="cols"><option value="0">自動</option><option value="1">1列</option><option value="2">2列</option><option value="3">3列</option><option value="4">4列</option></select></label>
+      <label>行数<select id="rows"><option value="0">自動</option><option value="1">1行</option><option value="2">2行</option><option value="3">3行</option><option value="4">4行</option></select></label>
       <label>文字サイズ<select id="fs"><option value="11">小</option><option value="12">中</option><option value="14">大</option><option value="16">特大</option></select></label>
+      <label title="コンテキストが指定%を超え、待機中のとき、STATE.md/LOG.mdへの保存を自動で依頼します">自動保存<select id="asv"><option value="0">オフ</option><option value="70">ctx 70%</option><option value="80">ctx 80%</option><option value="90">ctx 90%</option></select></label>
       <label>スクロール<select id="ss"><option value="1">遅</option><option value="3">標準</option><option value="5">速</option><option value="8">特速</option></select></label>
     </div>
   </span>
@@ -231,9 +252,11 @@ function applyTheme() {
 }
 
 let colsPref = Number(store.get('cols', 0));
+let rowsPref = Number(store.get('rows', 0));
 let fontSize = Number(store.get('fs', 12));
 let notifyOn = store.get('notif', '0') === '1' && Notification.permission === 'granted';
 $('cols').value = colsPref;
+$('rows').value = rowsPref;
 $('fs').value = fontSize;
 $('setbtn').onclick = (e) => { e.stopPropagation(); $('settings').classList.toggle('hide'); };
 window.addEventListener('click', (e) => { if (!e.target.closest('#settings')) $('settings').classList.add('hide'); });
@@ -267,7 +290,7 @@ const MIN_H = 360;
 const pageInfo = () => {
   const n = tiles.size || 1;
   const cols = colsPref || Math.min(3, Math.ceil(Math.sqrt(n)));
-  const rowsFit = Math.max(1, Math.floor(grid.clientHeight / MIN_H));
+  const rowsFit = rowsPref || Math.max(1, Math.floor(grid.clientHeight / MIN_H));
   return { cols, perPage: cols * rowsFit };
 };
 
@@ -324,7 +347,7 @@ function addTile(s) {
   if (tiles.has(s.id)) return;
   const el = document.createElement('div');
   el.className = 'tile';
-  el.innerHTML = `<div class="bar"><input type="checkbox" class="ck"><span class="grip" title="ドラッグで並び替え" draggable="true">⋮⋮</span><span class="n"></span><span class="bd wt hide"></span><span class="bd warn sh hide"></span><span class="ti"></span><span class="p"></span><span class="tk"></span><span class="an hide"></span><span class="cs hide"></span><span class="el hide"></span><span class="st">待機</span><label class="ib thw" title="このパネルのテーマ"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11"/></svg><select class="th"></select></label><button class="ib df" title="gitの変更を見る"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 2.5v11M5 5.5h6M11 5.5v8M3 13.5h4"/></svg></button><button class="ib ho" title="引き継ぎ・保存を促す"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h9M8 4.5L11.5 8 8 11.5M13.5 3v10"/></svg></button><button class="ib ch" title="完了後の自動チェック"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2.5" y="2.5" width="11" height="11"/><path d="M5.5 8l2 2 3.5-4"/></svg></button><button class="ib rn" title="名前を変更"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 13l.5-3L11 2.5 13.5 5 6 12.5z"/></svg></button><button class="ib mx" title="拡大"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3"/></svg></button><button class="ib rm" title="削除"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div><div class="askbox hide"></div><div class="term"></div>`;
+  el.innerHTML = `<div class="bar"><input type="checkbox" class="ck"><span class="grip" title="ドラッグで並び替え" draggable="true">⋮⋮</span><span class="n" translate="no"></span><span class="bd wt hide"></span><span class="bd warn sh hide"></span><span class="ti" translate="no"></span><span class="p"></span><span class="tk"></span><span class="an hide"></span><span class="cs hide"></span><span class="el hide"></span><span class="st">待機</span><label class="ib thw" title="このパネルのテーマ"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11"/></svg><select class="th"></select></label><button class="ib df" title="gitの変更を見る"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M5 2.5v11M5 5.5h6M11 5.5v8M3 13.5h4"/></svg></button><button class="ib ho" title="引き継ぎ・保存を促す"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2.5 8h9M8 4.5L11.5 8 8 11.5M13.5 3v10"/></svg></button><button class="ib ch" title="完了後の自動チェック"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2.5" y="2.5" width="11" height="11"/><path d="M5.5 8l2 2 3.5-4"/></svg></button><button class="ib rn" title="名前を変更"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 13l.5-3L11 2.5 13.5 5 6 12.5z"/></svg></button><button class="ib mx" title="拡大"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3"/></svg></button><button class="ib rm" title="削除"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div><div class="askbox hide"></div><div class="term"></div>`;
   const nameEl = el.querySelector('.n');
   nameEl.textContent = s.name;
   el.querySelector('.p').textContent = s.cwd;
@@ -539,14 +562,16 @@ function makeModal(title, sub) {
 }
 
 const hel = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const nt = (e) => { e.translate = false; return e; };
+const lbl = (label, data, cls = 'q') => { const d = hel('div', cls); d.append(hel('span', '', label), nt(hel('span', '', data))); return d; };
 const api = async (url, method = 'GET', body) => {
   const r = await fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });
   const ct = r.headers.get('content-type') || '';
   return { ok: r.ok, data: ct.includes('json') ? await r.json() : null };
 };
 
-const SUMMARY_PROMPT = 'ここまでの作業を、別のClaudeセッションにそのまま引き継げる形で要約してください。含める項目: 目的 / 決まったこと(理由つき) / 現在の状態 / 次にやること / 重要なファイルパス / 未解決の点。簡潔に、箇条書きで。';
-const SAVE_PROMPT = 'project-savedata の方式に従い、このプロジェクトの STATE.md と LOG.md を更新して保存してください(未作成ならフォルダ直下に作成)。確定した数値・日付は facts.json にも反映してください。';
+const SUMMARY_PROMPT = tr('ここまでの作業を、別のClaudeセッションにそのまま引き継げる形で要約してください。含める項目: 目的 / 決まったこと(理由つき) / 現在の状態 / 次にやること / 重要なファイルパス / 未解決の点。簡潔に、箇条書きで。');
+const SAVE_PROMPT = tr('このプロジェクトの STATE.md と LOG.md を更新して保存してください(未作成ならフォルダ直下に作成)。確定した数値・日付は facts.json にも反映してください。');
 
 function showHandoff(t) {
   const { body, close } = makeModal(`引き継ぎ: ${t.s.name}`, '要約を別のパネルに渡す / 保存を促す');
@@ -567,7 +592,7 @@ function showHandoff(t) {
   const r3 = hel('div', 'row2');
   const sel = hel('select');
   sel.appendChild(Object.assign(hel('option', '', '新規パネル (同じフォルダ)'), { value: 'new' }));
-  for (const [id, x] of tiles) if (id !== t.s.id) sel.appendChild(Object.assign(hel('option', '', x.s.name), { value: id }));
+  for (const [id, x] of tiles) if (id !== t.s.id) sel.appendChild(Object.assign(nt(hel('option', '', x.s.name)), { value: id }));
   const b3 = hel('button', 'ghost', '入力欄に貼り付ける (送信はしません)');
   r3.append(sel, b3);
   body.appendChild(r3);
@@ -598,7 +623,7 @@ function showHandoff(t) {
         if (sc.data && /❯|>\s*$/m.test(sc.data.text) && /auto mode|shortcuts|bypass|accept edits/i.test(sc.data.text)) break;
       }
     }
-    await api(`/api/sessions/${target}/send`, 'POST', { text: `これは前のセッションからの引き継ぎです。内容を踏まえて、続きから進めてください。\n\n${text}`, enter: false });
+    await api(`/api/sessions/${target}/send`, 'POST', { text: `${tr('これは前のセッションからの引き継ぎです。内容を踏まえて、続きから進めてください。')}\n\n${text}`, enter: false });
     toast('入力欄に貼り付けました。内容を確認して送信してください');
     close();
     focusTile(target);
@@ -697,6 +722,145 @@ async function showSearch() {
   inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) run(); };
 }
 
+async function showTasks() {
+  const { body, close } = makeModal('タスク', '残りと、止まっている理由 (クリックでそのパネルへ)');
+  const r = await api('/api/tasks');
+  const list = r.data || [];
+  const tools = hel('div', 'row2');
+  const bt = hel('button', 'ghost', '今日の作業');
+  bt.onclick = () => { close(); showToday(); };
+  tools.append(bt);
+  body.appendChild(tools);
+  const box = hel('div', 'tdbox');
+  body.appendChild(box);
+  const renderTodos = async () => {
+    const items = (await api('/api/todos')).data || [];
+    const add = hel('input', 'tdin');
+    add.placeholder = 'やることを追加 (Enter)';
+    add.onkeydown = async (e) => {
+      if (e.key !== 'Enter' || e.isComposing || !add.value.trim()) return;
+      await api('/api/todos', 'POST', { text: add.value });
+      renderTodos();
+    };
+    const open = items.filter((t) => !t.done);
+    const done = items.filter((t) => t.done).sort((a, b) => b.doneAt - a.doneAt).slice(0, 5);
+    const rows = [...open, ...done].map((t) => {
+      const row = hel('div', 'td' + (t.done ? ' dn' : ''));
+      const ck = hel('input'); ck.type = 'checkbox'; ck.checked = t.done;
+      ck.onchange = async () => { await api(`/api/todos/${t.id}`, 'POST', { done: ck.checked }); renderTodos(); };
+      const x = hel('button', 'ghost', '×'); x.title = '削除';
+      x.onclick = async () => { await api(`/api/todos/${t.id}`, 'DELETE'); renderTodos(); };
+      row.append(ck, nt(hel('span', 'tt', t.text)), nt(hel('span', 'tp', t.panel)), x);
+      return row;
+    });
+    box.replaceChildren(hel('div', 'tdh', `やること ${open.length}件`), add, ...rows);
+  };
+  renderTodos();
+  const ago = (t) => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'いま' : m < 60 ? `${m}分前` : m < 1440 ? `${Math.floor(m / 60)}時間前` : `${Math.floor(m / 1440)}日前`; };
+  const cut = (t, n) => (t.length > n ? t.slice(0, n) + '…' : t);
+  const one = (t) => (t || '').replace(/\s+/g, ' ').trim();
+  const todo = (x) => {
+    const left = x.todos.filter((d) => d.status !== 'completed');
+    if (!x.alive) return ['end', '終了', ''];
+    if (x.ask) return ['ask', '回答待ち', `${cut(x.ask, 70)}`];
+    if (x.anoms.length) return ['ask', '異常', x.anoms.join(' / ')];
+    if (x.check && !x.check.ok) return ['ask', 'チェックNG', '自動チェックが失敗'];
+    if (x.busy) return ['', '作業中', ''];
+    if (left.length) return ['', `残り${left.length}件`, cut(left.map((d) => d.text).join(' / '), 90)];
+    return ['ok', '次の指示待ち', ''];
+  };
+  const rank = { ask: 0, '': 1, ok: 2, end: 3 };
+  const ws = list.map((x) => ({ x, t: todo(x) }));
+  ws.sort((a, b) => rank[a.t[0]] - rank[b.t[0]]);
+  for (const { x, t: [cls, label, text] } of ws) {
+    const row = hel('div', 'tk');
+    const h = hel('div', 'h');
+    h.append(nt(hel('b', '', x.name)), hel('span', 'why ' + cls, label), hel('span', 'sm', text), hel('span', 'ag', x.replyAt ? ago(x.replyAt) : ''));
+    row.appendChild(h);
+    if (x.ask) {
+      const opts = x.options.filter((o) => !/^Type something|^Chat about this/.test(o));
+      row.appendChild(nt(hel('div', 'q', opts.map((o, i) => `${i + 1} ${cut(o, 22)}`).join('   '))));
+    } else {
+      const rep = one(x.lastReply ? x.lastReply.slice(-200) : x.screenTail.split('\n').slice(-2).join(' '));
+      if (x.lastPrompt) row.appendChild(lbl('指示: ', cut(one(x.lastPrompt), 80)));
+      if (rep) row.appendChild(lbl(`${x.lastReply ? '返答' : '画面'}: `, cut(rep, 100)));
+    }
+    row.onclick = () => { close(); focusTile(x.id); };
+    const keep = hel('button', 'ghost kp', '＋残す'); keep.title = 'この内容をやることに追加';
+    keep.onclick = async (e) => {
+      e.stopPropagation();
+      const t = x.ask ? `回答する: ${x.ask}` : text || (x.lastPrompt ? `確認: ${cut(one(x.lastPrompt), 60)}` : '次の指示を出す');
+      await api('/api/todos', 'POST', { text: t, panel: x.name });
+      keep.textContent = '済'; keep.disabled = true;
+      renderTodos();
+    };
+    h.appendChild(keep);
+    body.appendChild(row);
+  }
+  if (!list.length) body.textContent = 'パネルがありません';
+}
+
+function showBroadcast() {
+  const { body, close } = makeModal('一斉送信', '選んだパネルに、同じ指示を送ります');
+  const ta = hel('textarea');
+  ta.rows = 5;
+  ta.placeholder = '送る内容';
+  body.appendChild(ta);
+  const names = { run: '作業中', ask: '確認待ち', end: '終了', done: '完了', idle: '待機' };
+  const cks = [];
+  for (const [, t] of tiles) {
+    const row = hel('label', 'td');
+    const ck = hel('input'); ck.type = 'checkbox';
+    const blocked = t.state === 'ask' || t.state === 'end';
+    ck.disabled = blocked;
+    ck.checked = !blocked && t.state !== 'run';
+    row.append(ck, nt(hel('span', 'tt', t.s.name)), hel('span', 'tp', blocked ? `${names[t.state]}のため送れません` : names[t.state] || ''));
+    body.appendChild(row);
+    cks.push([ck, t]);
+  }
+  const send = hel('button', 'ghost', '送信');
+  const upd = () => { const n = cks.filter(([c]) => c.checked).length; send.textContent = `送信 (${n}件)`; send.disabled = !n || !ta.value.trim(); };
+  cks.forEach(([c]) => (c.onchange = upd));
+  ta.oninput = upd;
+  upd();
+  body.appendChild(hel('div', 'note', '作業中のパネルは、既定では外してあります。送ると、Claudeの入力欄に入れてEnterを押します。確認待ちのパネルには、選択肢の回答になってしまうため送れません。'));
+  body.appendChild(send);
+  send.onclick = async () => {
+    const text = ta.value.trim();
+    const targets = cks.filter(([c]) => c.checked).map(([, t]) => t);
+    if (!text || !targets.length) return;
+    send.disabled = true;
+    for (const t of targets) await api(`/api/sessions/${t.s.id}/send`, 'POST', { text, enter: true });
+    toast(`${targets.length}件に送りました`);
+    close();
+  };
+}
+
+async function showToday() {
+  const { body, close } = makeModal('今日の作業', '会話ログから集計 (トークンは使いません)');
+  const r = (await api('/api/today')).data;
+  if (!r) { body.textContent = '取得できませんでした'; return; }
+  const hm = (t) => new Date(t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const total = r.panels.reduce((a, p) => a + p.prompts.length, 0);
+  body.appendChild(hel('div', 'tdh', `指示 ${total}回 / 完了したやること ${r.done.length}件`));
+  if (r.done.length) {
+    const box = hel('div', 'tdbox');
+    for (const t of r.done) { const row = hel('div', 'td dn'); row.append(nt(hel('span', 'tt', t.text)), nt(hel('span', 'tp', `${t.panel} ${hm(t.doneAt)}`))); box.appendChild(row); }
+    body.appendChild(box);
+  }
+  for (const p of r.panels) {
+    const row = hel('div', 'tk');
+    const h = hel('div', 'h');
+    h.append(nt(hel('b', '', p.name)), hel('span', 'sm', `指示${p.prompts.length}回 / 返答${p.turns}回`), hel('span', 'ag', `${hm(p.first)}〜${hm(p.last)}`));
+    row.appendChild(h);
+    for (const q of p.prompts.slice(-6)) row.appendChild(nt(hel('div', 'q', `${hm(q.at)}  ${q.text.replace(/\s+/g, ' ')}`)));
+    if (p.prompts.length > 6) row.appendChild(hel('div', 'q', `…ほか${p.prompts.length - 6}件`));
+    row.onclick = () => { close(); focusTile(p.id); };
+    body.appendChild(row);
+  }
+  if (!r.panels.length && !r.done.length) body.appendChild(hel('div', 'note', '今日の記録はまだありません'));
+}
+
 async function showOverview() {
   const { body, close } = makeModal('一覧', '状態別 (クリックでそのパネルへ)');
   const order = ['ask', 'run', 'done', 'idle', 'end'];
@@ -708,9 +872,9 @@ async function showOverview() {
     st.className = 'st';
     st.dataset.s = t.state || 'idle';
     st.style.color = { ask: '#ef4444', run: '#facc15', done: '#22c55e', end: '#777', idle: '#fff' }[t.state || 'idle'];
-    const nm = hel('span', '', t.s.name);
+    const nm = nt(hel('span', '', t.s.name));
     nm.style.fontWeight = '600';
-    const pre = hel('pre', '', '…');
+    const pre = nt(hel('pre', '', '…'));
     row.append(st, nm, pre);
     row.onclick = () => { close(); focusTile(t.s.id); };
     body.appendChild(row);
@@ -901,8 +1065,10 @@ async function poll() {
       if (!running && t.running && Date.now() - t.runSince > 1500 && !t.el.classList.contains('focus')) {
         t.el.classList.add('done');
         updateTitle();
-        if (notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」が待機状態になりました` });
+        if (notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」が待機状態になりました`) });
       }
+      if ('asv' in t && s.autoSavedAt && s.autoSavedAt !== t.asv) toast(`「${t.s.name}」に保存を依頼しました (ctx ${s.autoSaveCtx}%)`);
+      t.asv = s.autoSavedAt;
       t.running = running;
       t.ask = s.ask;
       t.tok = s.tok;
@@ -917,12 +1083,12 @@ async function poll() {
       const anKey = s.anoms.join(',');
       t.an.textContent = `⚠ ${s.anoms.join(' / ')}`;
       t.an.classList.toggle('hide', !s.anoms.length);
-      if (anKey && anKey !== t.anKey && notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」: ${s.anoms.join(' / ')}` });
+      if (anKey && anKey !== t.anKey && notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」: `) + tr(s.anoms.join(' / ')) });
       t.anKey = anKey;
       t.cs.classList.toggle('hide', !s.check);
       t.cs.dataset.s = s.checkState;
       t.cs.textContent = { run: 'チェック中', ok: '✓ チェック', ng: '✗ チェック' }[s.checkState] || 'チェック';
-      if (t.prevCheck === 'run' && s.checkState === 'ng' && notifyOn) new Notification('CC Grid', { body: `「${t.s.name}」: 自動チェックが失敗しました` });
+      if (t.prevCheck === 'run' && s.checkState === 'ng' && notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」: 自動チェックが失敗しました`) });
       t.prevCheck = s.checkState;
       if (s.busySince) {
         const sec = Math.max(0, Math.floor((Date.now() - s.busySince) / 1000));
@@ -937,7 +1103,7 @@ async function poll() {
       t.prevState = state;
       renderAsk(t, state === 'ask' ? s.askInfo : null);
       if (state === 'ask' && prev !== 'ask' && notifyOn && (!document.hasFocus() || !t.el.classList.contains('focus'))) {
-        new Notification('CC Grid', { body: `「${t.s.name}」が確認を求めています\n${(s.askInfo?.question || '').split('\n').filter(Boolean).slice(0, 2).join(' ')}` });
+        new Notification('CC Grid', { body: `${tr(`「${t.s.name}」が確認を求めています`)}\n${(s.askInfo?.question || '').split('\n').filter(Boolean).slice(0, 2).join(' ')}` });
       }
       t.st.textContent = { end: '終了', run: '実行中', ask: '確認待ち', done: '完了', idle: '待機' }[state];
     }
@@ -973,9 +1139,20 @@ $('add').onclick = async () => {
   if (r.data.worktree) toast(`worktreeを作りました: ${r.data.worktree.path}`);
 };
 $('ovbtn').onclick = showOverview;
+$('tkbtn').onclick = showTasks;
+$('bcbtn').onclick = showBroadcast;
+fetch('/api/settings').then((r) => r.json()).then((c) => { $('asv').value = c.autoSave; }).catch(() => {});
+$('lang').value = window.LANG;
+$('lang').onchange = async (e) => { await api('/api/settings', 'POST', { lang: e.target.value }); location.reload(); };
+$('asv').onchange = async (e) => {
+  const v = Number(e.target.value);
+  await api('/api/settings', 'POST', { autoSave: v });
+  toast(v ? `自動保存: ctx ${v}%を超えたら、待機中に保存を依頼します (ホーム直下のパネルは除く)` : '自動保存をオフにしました');
+};
 $('srbtn').onclick = showSearch;
 $('rdbtn').onclick = () => { const on = document.body.classList.toggle('reorder'); $('rdbtn').classList.toggle('on', on); if (on) toast('パネル左上の ⋮⋮ をドラッグして、並べたい位置のパネルへ落としてください'); };
 $('cwd').onkeydown = $('name').onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) $('add').click(); };
+$('rows').onchange = (e) => { rowsPref = Number(e.target.value); store.set('rows', rowsPref); layout(); };
 $('cols').onchange = (e) => { colsPref = Number(e.target.value); store.set('cols', colsPref); layout(); };
 $('theme').onchange = (e) => { themeName = e.target.value; store.set('theme', themeName); applyTheme(); };
 $('ss').value = String(scrollSpeed);

@@ -62,6 +62,14 @@ You can. It works until you run four sessions and one of them has been waiting f
 - Per-session **check command**: save a shell command such as `npm test`, run it from the panel, and see running / OK / NG.
 - Git diff viewer for each session's folder.
 
+**Tasks and hand-off**
+
+- A **Tasks** view lists, per panel, why it is stuck (waiting for your answer, anomaly, check failed, working, or done), the pending question and options, remaining to-do items from Claude's own todo list, and the last prompt and reply.
+- A personal **to-do list** in the same view, saved to `todos.json`.
+- **Broadcast** the same instruction to several panels at once (panels that are waiting for an answer are skipped).
+- **Auto-save** (off by default): when a panel's context passes 70 / 80 / 90 % and it is idle, it is asked to write `STATE.md` / `LOG.md` so work can resume later.
+- **Today's work**: prompts and replies per panel for the day, read from the conversation logs. Uses no tokens.
+
 **History and layouts**
 
 - Full-text search over past conversations and `git log` messages in your project folders.
@@ -139,6 +147,7 @@ Each answer is matched to a fingerprint of the prompt that was on screen. A stal
 | `CC_GRID_WORKTREES` | `~/.cc-grid/worktrees` | Where git worktrees are created |
 | `CC_GRID_REMOTE` | unset | Set to `1` to enable remote (LAN) mode |
 | `CC_GRID_BIND` | `0.0.0.0` | Bind address in remote mode. Local mode always binds `127.0.0.1` |
+| `CC_GRID_LANG` | `en` | Initial UI language (`en` or `ja`). Can also be changed in the settings menu |
 
 ## FAQ
 

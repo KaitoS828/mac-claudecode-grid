@@ -10,3 +10,7 @@ sessions.json
 sessions.json.tmp
 sets.json
 .backup/
+settings.json
+todos.json
+todos.json.bak
+todos.json.tmp

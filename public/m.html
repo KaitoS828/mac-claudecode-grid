@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-lang="__DEFAULT_LANG__">
 <head>
 <meta charset="utf-8">
+<script src="/i18n.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CC Grid</title>
 <style>
@@ -44,7 +45,7 @@ async function key(id, k, fp) {
   if (!r.ok) {
     let msg = '送れませんでした';
     try { msg = (await r.json()).reason || msg; } catch {}
-    alert(msg);
+    alert(tr(msg));
   }
   load();
 }
