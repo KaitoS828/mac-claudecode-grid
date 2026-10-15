@@ -197,6 +197,8 @@
     '保存したセットはありません': 'No saved sets',
     '」を保存しました (': '" saved (',
     '個)': ' panels)',
+    '待機状態になりました': 'Now idle',
+    '自動チェックが失敗しました': 'Auto-check failed',
     '」が待機状態になりました': '" is now idle',
     '」に保存を依頼しました (ctx': '" — save requested (ctx',
     'コンテキスト': 'Context',

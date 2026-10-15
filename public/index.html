@@ -762,7 +762,7 @@ async function showTasks() {
   const todo = (x) => {
     const left = x.todos.filter((d) => d.status !== 'completed');
     if (!x.alive) return ['end', '終了', ''];
-    if (x.ask) return ['ask', '回答待ち', `${cut(x.ask, 70)}`];
+    if (x.ask) return ['ask', `回答待ち${x.askSince ? ' ' + dur(Date.now() - x.askSince) : ''}`.trimEnd(), `${cut(x.ask, 70)}`];
     if (x.anoms.length) return ['ask', '異常', x.anoms.join(' / ')];
     if (x.check && !x.check.ok) return ['ask', 'チェックNG', '自動チェックが失敗'];
     if (x.busy) return ['', '作業中', ''];
@@ -1054,6 +1054,18 @@ $('setsave').onclick = async () => {
 $('setname').onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) $('setsave').click(); };
 $('usebtn').onclick = showUsage;
 
+const dur = (ms) => { const m = Math.floor(ms / 60000); return m < 1 ? '' : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60}m`; };
+const notifyAt = new Map();
+function notify(t, kind, body) {
+  if (!notifyOn) return;
+  const key = `${kind}-${t.s.id}`;
+  const now = Date.now();
+  if (now - (notifyAt.get(key) || 0) < 10000) return;
+  notifyAt.set(key, now);
+  const n = new Notification(`#${t.s.id} ${t.s.name}`, { body: (body || '').slice(0, 160), tag: key });
+  n.onclick = () => { window.focus(); focusTile(t.s.id); n.close(); };
+}
+
 async function poll() {
   try {
     const list = await (await fetch('/api/sessions')).json();
@@ -1065,7 +1077,7 @@ async function poll() {
       if (!running && t.running && Date.now() - t.runSince > 1500 && !t.el.classList.contains('focus')) {
         t.el.classList.add('done');
         updateTitle();
-        if (notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」が待機状態になりました`) });
+        notify(t, 'done', s.lastReply || tr('待機状態になりました'));
       }
       if ('asv' in t && s.autoSavedAt && s.autoSavedAt !== t.asv) toast(`「${t.s.name}」に保存を依頼しました (ctx ${s.autoSaveCtx}%)`);
       t.asv = s.autoSavedAt;
@@ -1073,7 +1085,9 @@ async function poll() {
       t.ask = s.ask;
       t.tok = s.tok;
       t.tk.textContent = [s.hud.model, s.hud.ctxPct != null ? `ctx ${s.hud.ctxPct}%` : s.tok.ctx ? `ctx ${fmt(s.tok.ctx)}` : '', s.tok.ctx ? `出力 ${fmt(s.tok.out)}` : ''].filter(Boolean).join(' · ');
-      t.tk.style.color = s.hud.ctxPct >= 80 ? '#ef4444' : '';
+      if (s.git) t.tk.textContent += ` · ${s.git.branch}${s.git.dirty ? ` ±${s.git.dirty}` : ''}`;
+      if (s.hud.ctxPct >= 80) t.tk.textContent += ' · /compact';
+      t.tk.style.color = s.hud.ctxPct >= 90 ? '#ef4444' : s.hud.ctxPct >= 70 ? '#facc15' : '';
       t.tk.title = `コンテキスト ${s.tok.ctx.toLocaleString()} / 入力(新規) ${s.tok.inp.toLocaleString()} / 出力 ${s.tok.out.toLocaleString()}`;
       t.s.worktree = s.worktree;
       setWorktreeBadge(t.el, s);
@@ -1083,12 +1097,12 @@ async function poll() {
       const anKey = s.anoms.join(',');
       t.an.textContent = `⚠ ${s.anoms.join(' / ')}`;
       t.an.classList.toggle('hide', !s.anoms.length);
-      if (anKey && anKey !== t.anKey && notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」: `) + tr(s.anoms.join(' / ')) });
+      if (anKey && anKey !== t.anKey) notify(t, 'anom', `⚠ ${tr(s.anoms.join(' / '))}`);
       t.anKey = anKey;
       t.cs.classList.toggle('hide', !s.check);
       t.cs.dataset.s = s.checkState;
       t.cs.textContent = { run: 'チェック中', ok: '✓ チェック', ng: '✗ チェック' }[s.checkState] || 'チェック';
-      if (t.prevCheck === 'run' && s.checkState === 'ng' && notifyOn) new Notification('CC Grid', { body: tr(`「${t.s.name}」: 自動チェックが失敗しました`) });
+      if (t.prevCheck === 'run' && s.checkState === 'ng') notify(t, 'check', tr('自動チェックが失敗しました'));
       t.prevCheck = s.checkState;
       if (s.busySince) {
         const sec = Math.max(0, Math.floor((Date.now() - s.busySince) / 1000));
@@ -1102,10 +1116,15 @@ async function poll() {
       const prev = t.prevState;
       t.prevState = state;
       renderAsk(t, state === 'ask' ? s.askInfo : null);
-      if (state === 'ask' && prev !== 'ask' && notifyOn && (!document.hasFocus() || !t.el.classList.contains('focus'))) {
-        new Notification('CC Grid', { body: `${tr(`「${t.s.name}」が確認を求めています`)}\n${(s.askInfo?.question || '').split('\n').filter(Boolean).slice(0, 2).join(' ')}` });
+      const q = (s.askInfo?.question || '').split('\n').filter(Boolean).slice(0, 2).join(' ');
+      const waited = state === 'ask' && s.askSince ? Date.now() - s.askSince : 0;
+      if (state === 'ask' && prev !== 'ask' && (!document.hasFocus() || !t.el.classList.contains('focus'))) notify(t, 'ask', q);
+      for (const mins of [5, 15]) {
+        if (state === 'ask' && waited >= mins * 60000 && (t.escal || 0) < mins) { t.escal = mins; notify(t, `ask${mins}`, `[${mins}m] ${q}`); }
       }
-      t.st.textContent = { end: '終了', run: '実行中', ask: '確認待ち', done: '完了', idle: '待機' }[state];
+      if (state !== 'ask') t.escal = 0;
+      t.st.textContent = { end: '終了', run: '実行中', ask: '確認待ち', done: '完了', idle: '待機' }[state] + (waited ? ` ${dur(waited)}`.trimEnd() : '');
+      t.st.style.fontWeight = waited >= 300000 ? '700' : '';
     }
     renderPager(pgCount, pageInfo().perPage);
     const c = (k) => [...tiles.values()].filter((t) => t.state === k).length;

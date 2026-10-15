@@ -60,7 +60,7 @@ function create({ cwd, name, cmd, id: fixedId, sid: oldSid, worktree, check }) {
   const id = fixedId || String(++seq);
   const dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
   const term = pty.spawn(process.env.SHELL || '/bin/zsh', ['-l'], {
-    name: 'xterm-256color', cols: 100, rows: 30, cwd: dir, env: process.env,
+    name: 'xterm-256color', cols: 100, rows: 30, cwd: dir, env: { ...process.env, CC_GRID_SESSION_ID: id },
   });
   const sid = oldSid || randomUUID();
   const s = { id, sid, name: name || (dir === os.homedir() ? '~' : path.basename(dir)), cwd: dir, term, buf: '', clients: new Set(), alive: true, busy: 0, lastData: Date.now(), worktree, check: check || '', wasBusy: false, anoms: [], samples: [], screen: new HeadlessTerminal({ cols: 100, rows: 30, scrollback: 200, allowProposedApi: true }) };
@@ -355,6 +355,17 @@ function tick() {
       if (lp && t.prompts.slice(-6).filter((x) => x === lp).length >= 3) anoms.push('同じ指示を反復');
     }
     s.anoms = anoms;
+    const askNow = askInfo(s);
+    if (askNow) { if (s.askFp !== askNow.fp) { s.askFp = askNow.fp; s.askAt = now; } } else { s.askFp = null; s.askAt = 0; }
+    if (!s.gitAt || now - s.gitAt >= 15000) {
+      s.gitAt = now;
+      (async () => {
+        const br = await gitOut(s.cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+        if (br === null) { s.git = null; return; }
+        const st = await gitOut(s.cwd, ['status', '--porcelain']);
+        s.git = { branch: br.trim(), dirty: st ? st.split('\n').filter(Boolean).length : 0 };
+      })();
+    }
     if (settings.autoSave && !busyNow && !s.wasBusy && s.cwd !== os.homedir()) {
       const c = hud(s).ctxPct;
       if (c != null && c < 50) s.autoSaved = 0;
@@ -498,7 +509,7 @@ const LOOP_HOST = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/;
 
 const pub = (s) => {
   const info = askInfo(s);
-  const shared = [...sessions.values()].filter((x) => x !== s && x.alive && x.cwd === s.cwd).length;
+  const shared = [...sessions.values()].filter((x) => x !== s && x.alive && !x.trash && x.cwd === s.cwd).length;
   return {
     id: s.id, name: s.name, cwd: s.cwd, alive: s.alive, busyAgoMs: Date.now() - s.busy,
     ask: !!info, askInfo: info, tok: tokens(s), hud: hud(s),
@@ -506,6 +517,7 @@ const pub = (s) => {
     check: s.check || '', checkState: s.checking ? 'run' : s.checkResult ? (s.checkResult.ok ? 'ok' : 'ng') : '',
     anoms: s.anoms || [], busySince: s.wasBusy ? s.busySince : 0, lastDoneAt: s.lastDoneAt || 0,
     autoSavedAt: s.autoSavedAt || 0, autoSaveCtx: s.autoSaveCtx || 0,
+    askSince: s.askAt || 0, git: s.git || null, lastReply: ((s.tok && s.tok.asst) || '').replace(/\s+/g, ' ').slice(-120),
   };
 };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -612,7 +624,7 @@ const server = http.createServer({ maxHeaderSize: 262144 }, async (req, res) => 
       return {
         id: s.id, name: s.name, cwd: s.cwd, alive: s.alive, busy: Date.now() - s.busy < 2500, ask: info ? ((info.question.split('\n').map((l) => l.trim()).filter((l) => /[?？]$/.test(l)).pop()) || info.question.split('\n').map((l) => l.trim()).filter((l) => l && !/^□/.test(l)).pop() || '').slice(0, 120) : '', options: info ? info.options.map((o) => o.title.slice(0, 60)) : [],
         todos: t.todos || [], lastPrompt: (t.prompts || []).slice(-1)[0] || '', lastReply: t.asst || '', screenTail: t.asst ? '' : screenLines(s).filter((l) => l.trim() && !/auto mode|shortcuts|OMC|ctx:|5h:|Esc to cancel|Enter to select|^[\s─━═]+$/.test(l)).slice(-5).join('\n'),
-        userAt: t.userAt || 0, replyAt: t.asstAt || 0, anoms: s.anoms || [],
+        userAt: t.userAt || 0, replyAt: t.asstAt || 0, askSince: s.askAt || 0, anoms: s.anoms || [],
         check: s.checkResult ? { ok: s.checkResult.ok } : null, lastDoneAt: s.lastDoneAt || 0,
       };
     }));
