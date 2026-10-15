@@ -60,7 +60,9 @@ You can. It works until you run four sessions and one of them has been waiting f
 - Token usage (input, output, cache read) summed from the logs in `~/.claude/projects`.
 - Status-line values (usage bars, context, model) shown next to the panel.
 - Per-session **check command**: save a shell command such as `npm test`, run it from the panel, and see running / OK / NG.
-- Git diff viewer for each session's folder.
+- Git diff viewer for each session's folder, plus the branch and changed-file count on each panel.
+- Context warning (yellow at 70 %, red at 90 %), and how long a panel has been waiting for your answer. Notifications repeat at 5 and 15 minutes, show the last reply or the question, and jump to the panel on click.
+- Each session gets its own id in `CC_GRID_SESSION_ID`, so an agent can tell which session it is.
 
 **Tasks and hand-off**
 
@@ -137,6 +139,16 @@ A URL with a one-time token is printed at startup. Open it on a phone on the sam
 Each answer is matched to a fingerprint of the prompt that was on screen. A stale tap on an old prompt is refused instead of answering a new one. Every action goes to `.audit.log`.
 
 > **Read [SECURITY.md](SECURITY.md) before you turn this on.** The server gives shell access to whoever holds the token. If you need access from outside your LAN, use a VPN such as Tailscale. Never port-forward it.
+
+### Over Tailscale
+
+Tailscale addresses (`100.64.0.0/10`) count as private, so the approval page works from your phone anywhere your phone is on your tailnet. Nothing is opened to the public internet.
+
+1. Install Tailscale on the Mac and the phone and sign in to the same tailnet.
+2. Run `npm run start:remote`. A URL is printed for every network interface, including the Tailscale one (`100.x.x.x`).
+3. Open that URL on the phone, then `/m`.
+
+The phone can answer prompts and view screens. It cannot open a free terminal. The token and the fingerprint check still apply. Never use `tailscale funnel` with this server.
 
 ## Configuration
 
