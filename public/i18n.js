@@ -268,11 +268,11 @@
   };
   function fix(n) {
     if (n.nodeType === 3) {
-      if (CJK.test(n.nodeValue) && !skip(n)) n.nodeValue = tr(n.nodeValue);
+      if (CJK.test(n.nodeValue) && !skip(n)) { const v = tr(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
       return;
     }
     if (n.nodeType !== 1 || skip(n)) return;
-    for (const a of ATTRS) if (n.hasAttribute(a)) { const v = n.getAttribute(a); if (CJK.test(v)) n.setAttribute(a, tr(v)); }
+    for (const a of ATTRS) if (n.hasAttribute(a)) { const v = n.getAttribute(a); if (CJK.test(v)) { const w = tr(v); if (w !== v) n.setAttribute(a, w); } }
     for (const c of n.childNodes) fix(c);
   }
   new MutationObserver((list) => {
