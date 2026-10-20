@@ -3,35 +3,48 @@
 <head>
 <meta charset="utf-8">
 <script src="/i18n.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CC Grid</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; background: #000; color: #fff; font: 15px -apple-system, "Hiragino Sans", sans-serif; padding: 10px; }
-  h1 { font-size: 14px; margin: 4px 0 10px; color: #aaa; font-weight: 600; }
-  .card { border: 1px solid #333; margin-bottom: 10px; padding: 10px; border-radius: 2px; }
-  .card[data-s="ask"] { border-color: #ef4444; } .card[data-s="run"] { border-color: #facc15; } .card[data-s="done"] { border-color: #22c55e; }
-  .top { display: flex; gap: 8px; align-items: baseline; }
-  .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .st { font-size: 12px; color: #aaa; }
-  .card[data-s="ask"] .st { color: #ef4444; } .card[data-s="run"] .st { color: #facc15; } .card[data-s="done"] .st { color: #22c55e; }
-  pre { margin: 8px 0 0; padding: 8px; background: #0a0a0a; border: 1px solid #222; font: 11px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; color: #ccc; }
-  .opts { display: grid; gap: 8px; margin-top: 10px; }
+  html, body { height: 100%; }
+  body { margin: 0; background: #000; color: #fff; font: 15px -apple-system, "Hiragino Sans", sans-serif; display: flex; flex-direction: column; height: 100dvh; padding-top: env(safe-area-inset-top); }
+  #tabs { display: flex; gap: 6px; overflow-x: auto; padding: 8px 8px 6px; border-bottom: 1px solid #222; flex: none; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid #333; color: #aaa; background: #000; padding: 6px 10px; border-radius: 2px; font: inherit; font-size: 13px; }
+  .tab::before { content: "●"; margin-right: 5px; font-size: 10px; color: #555; }
+  .tab[data-s="ask"]::before { color: #ef4444; } .tab[data-s="run"]::before { color: #facc15; } .tab[data-s="end"]::before { color: #333; }
+  .tab.on { border-color: #fff; color: #fff; }
+  #state { flex: none; padding: 6px 10px; font-size: 12px; color: #aaa; display: none; }
+  #state[data-s="ask"] { color: #ef4444; } #state[data-s="run"] { color: #facc15; }
+  #screen { flex: 1; min-height: 0; margin: 0; padding: 8px 10px; overflow: auto; background: #0a0a0a; font: 11px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; color: #ccc; -webkit-overflow-scrolling: touch; }
+  #ask { flex: none; display: none; padding: 8px; border-top: 1px solid #ef4444; max-height: 45vh; overflow: auto; }
+  #ask pre { margin: 0 0 8px; padding: 8px; background: #0a0a0a; border: 1px solid #222; font: 11px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; color: #ccc; }
+  .opts { display: grid; gap: 8px; }
   button { background: #000; color: #fff; border: 1px solid #fff; padding: 12px; font: inherit; border-radius: 2px; text-align: left; }
   button.no { border-color: #ef4444; color: #ef4444; }
-  button.ghost { border-color: #444; color: #aaa; padding: 6px 10px; font-size: 12px; margin-top: 8px; }
-  .note { color: #666; font-size: 12px; margin-top: 14px; }
+  #bar { flex: none; display: flex; gap: 8px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #222; align-items: flex-end; }
+  #msg { flex: 1; min-width: 0; background: #0a0a0a; color: #fff; border: 1px solid #444; padding: 8px; font: 16px -apple-system, "Hiragino Sans", sans-serif; border-radius: 2px; resize: none; max-height: 30vh; }
+  #go { text-align: center; padding: 10px 14px; }
+  #go:disabled, #msg:disabled { opacity: .4; }
 </style>
 </head>
 <body>
-<h1>CC GRID (承認のみ)</h1>
-<div id="list"></div>
-<div class="note">ここでできるのは、確認待ちへの回答と、画面の確認だけです。選択肢の内容をよく読んでから押してください。</div>
+<div id="tabs"></div>
+<div id="state"></div>
+<pre id="screen">読み込み中…</pre>
+<div id="ask"></div>
+<div id="bar"><textarea id="msg" rows="1" placeholder="指示を入力"></textarea><button id="go">送信</button></div>
 <script>
-const list = document.getElementById('list');
-const labels = { ask: '確認待ち', run: '実行中', done: '完了', idle: '待機', end: '終了' };
-const open = new Set();
-const keep = new Map();
+const trs = (s) => (typeof tr === 'function' ? tr(s) : s);
+const labels = { ask: '確認待ち', run: '実行中', idle: '待機', end: '終了' };
+const $ = (id) => document.getElementById(id);
+const tabsEl = $('tabs'), stateEl = $('state'), screenEl = $('screen'), askEl = $('ask'), msgEl = $('msg'), goEl = $('go');
+const drafts = new Map();
+let sessions = [];
+let cur = null;
+let screenBusy = false;
+let askFp = '';
 
 function stateOf(s) {
   if (!s.alive) return 'end';
@@ -40,74 +53,127 @@ function stateOf(s) {
   return 'idle';
 }
 
-async function key(id, k, fp) {
-  const r = await fetch(`/api/sessions/${id}/key`, { method: 'POST', body: JSON.stringify({ key: k, fp }) });
+async function postJson(url, body) {
+  const r = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
   if (!r.ok) {
     let msg = '送れませんでした';
     try { msg = (await r.json()).reason || msg; } catch {}
-    alert(tr(msg));
+    alert(trs(msg));
+    return false;
   }
-  load();
+  return true;
 }
 
-async function load() {
+function select(id) {
+  if (cur != null) drafts.set(cur, msgEl.value);
+  cur = id;
+  msgEl.value = drafts.get(id) || '';
+  screenEl.textContent = '読み込み中…';
+  renderTabs();
+  renderCurrent();
+  loadScreen(true);
+}
+
+function renderTabs() {
+  const frag = document.createDocumentFragment();
+  for (const s of sessions) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (s.id === cur ? ' on' : '');
+    b.dataset.s = stateOf(s);
+    b.textContent = s.name;
+    b.onclick = () => select(s.id);
+    frag.appendChild(b);
+  }
+  tabsEl.replaceChildren(frag);
+  const on = tabsEl.querySelector('.on');
+  if (on) on.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+}
+
+function renderCurrent() {
+  const s = sessions.find((x) => x.id === cur);
+  if (!s) return;
+  const st = stateOf(s);
+  stateEl.style.display = 'block';
+  stateEl.dataset.s = st;
+  stateEl.textContent = labels[st] + (s.anoms.length ? ` / ⚠ ${s.anoms.join(' / ')}` : '');
+  const canSend = s.alive && st !== 'ask';
+  msgEl.disabled = !canSend;
+  goEl.disabled = !canSend;
+  msgEl.placeholder = st === 'ask' ? '確認待ちです。選択肢で回答してください' : s.alive ? '指示を入力' : '終了したセッションです';
+  if (st === 'ask' && s.askInfo) {
+    if (s.askInfo.fp === askFp && askEl.style.display === 'block') return;
+    askFp = s.askInfo.fp;
+    const q = document.createElement('pre');
+    q.textContent = s.askInfo.question;
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    for (const o of s.askInfo.options) {
+      const b = document.createElement('button');
+      b.textContent = `${o.n}. ${o.label}`;
+      if (/^no\b/i.test(o.label)) b.className = 'no';
+      if (o.locked) { b.disabled = true; b.textContent += ' (PCでのみ)'; b.style.opacity = '.4'; }
+      b.onclick = () => answer(s.id, String(o.n), s.askInfo.fp);
+      opts.appendChild(b);
+    }
+    const esc = document.createElement('button');
+    esc.textContent = 'Esc (キャンセル)';
+    esc.onclick = () => answer(s.id, 'esc', s.askInfo.fp);
+    opts.appendChild(esc);
+    askEl.replaceChildren(q, opts);
+    askEl.style.display = 'block';
+  } else {
+    askFp = '';
+    askEl.style.display = 'none';
+    askEl.replaceChildren();
+  }
+}
+
+async function answer(id, k, fp) {
+  await postJson(`/api/sessions/${id}/key`, { key: k, fp });
+  await loadList();
+  loadScreen(true);
+}
+
+async function loadList() {
   let data;
   try { data = await (await fetch('/api/sessions')).json(); } catch { return; }
-  const order = ['ask', 'run', 'idle', 'end'];
-  data.sort((a, b) => order.indexOf(stateOf(a)) - order.indexOf(stateOf(b)));
-  const frag = document.createDocumentFragment();
-  for (const s of data) {
-    const st = stateOf(s);
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.s = st;
-    const top = document.createElement('div');
-    top.className = 'top';
-    const nm = document.createElement('span');
-    nm.className = 'name';
-    nm.textContent = s.name;
-    const sl = document.createElement('span');
-    sl.className = 'st';
-    sl.textContent = labels[st] + (s.anoms.length ? ` / ⚠ ${s.anoms.join(' / ')}` : '');
-    top.append(nm, sl);
-    card.appendChild(top);
-    if (st === 'ask' && s.askInfo) {
-      const q = document.createElement('pre');
-      q.textContent = s.askInfo.question;
-      card.appendChild(q);
-      const opts = document.createElement('div');
-      opts.className = 'opts';
-      for (const o of s.askInfo.options) {
-        const b = document.createElement('button');
-        b.textContent = `${o.n}. ${o.label}`;
-        if (/^no\b/i.test(o.label)) b.className = 'no';
-        if (o.locked) { b.disabled = true; b.textContent += ' (PCでのみ)'; b.style.opacity = '.4'; }
-        b.onclick = () => key(s.id, String(o.n), s.askInfo.fp);
-        opts.appendChild(b);
-      }
-      const esc = document.createElement('button');
-      esc.textContent = 'Esc (キャンセル)';
-      esc.onclick = () => key(s.id, 'esc', s.askInfo.fp);
-      opts.appendChild(esc);
-      card.appendChild(opts);
-    }
-    const tg = document.createElement('button');
-    tg.className = 'ghost';
-    tg.textContent = open.has(s.id) ? '画面を閉じる' : '画面を見る';
-    tg.onclick = () => { open.has(s.id) ? open.delete(s.id) : open.add(s.id); load(); };
-    card.appendChild(tg);
-    if (open.has(s.id)) {
-      const pre = document.createElement('pre');
-      pre.textContent = keep.get(s.id) || '読み込み中…';
-      card.appendChild(pre);
-      fetch(`/api/sessions/${s.id}/screen`).then((r) => r.json()).then((d) => { keep.set(s.id, d.text); pre.textContent = d.text; });
-    }
-    frag.appendChild(card);
+  sessions = data;
+  if (cur == null || !sessions.some((s) => s.id === cur)) {
+    const first = sessions.find((s) => stateOf(s) === 'ask') || sessions[0];
+    if (first) return select(first.id);
   }
-  list.replaceChildren(frag);
+  renderTabs();
+  renderCurrent();
 }
-load();
-setInterval(load, 3000);
+
+async function loadScreen(force) {
+  if (cur == null || screenBusy) return;
+  screenBusy = true;
+  const id = cur;
+  try {
+    const d = await (await fetch(`/api/sessions/${id}/screen?n=200`)).json();
+    if (id !== cur) return;
+    const text = d.text || '';
+    if (!force && text === screenEl.textContent) return;
+    const nearBottom = screenEl.scrollHeight - screenEl.scrollTop - screenEl.clientHeight < 80;
+    screenEl.textContent = text;
+    if (force || nearBottom) screenEl.scrollTop = screenEl.scrollHeight;
+  } catch {} finally { screenBusy = false; }
+}
+
+goEl.onclick = async () => {
+  const text = msgEl.value;
+  if (!text.trim() || cur == null) return;
+  goEl.disabled = true;
+  const ok = await postJson(`/api/sessions/${cur}/send`, { text, enter: true });
+  if (ok) { msgEl.value = ''; drafts.delete(cur); msgEl.style.height = ''; setTimeout(() => loadScreen(true), 600); }
+  goEl.disabled = false;
+};
+msgEl.oninput = () => { msgEl.style.height = 'auto'; msgEl.style.height = Math.min(msgEl.scrollHeight, window.innerHeight * 0.3) + 'px'; };
+
+loadList();
+setInterval(loadList, 3000);
+setInterval(() => loadScreen(false), 2000);
 </script>
 </body>
 </html>

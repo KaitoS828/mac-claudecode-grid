@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="/i18n.js"></script>
 <title>CC Grid</title>
-<link rel="icon" href="/logo.svg">
+<link rel="icon" href="/logo.png">
 <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
 <style>
   * { box-sizing: border-box; }
@@ -54,6 +54,10 @@
   .tile[data-state="ask"] { --c: #ef4444; }
   .tile[data-state="done"] { --c: #22c55e; }
   .tile[data-state="end"] { --c: #555; }
+  .tile.need { --c: #ef4444; }
+  .tile.need .bar .st { border-color: #ef4444; color: #ef4444; }
+  .tile.need-warn { --c: #facc15; }
+  .tile.need-warn .bar .st { border-color: #facc15; color: #facc15; }
   .tile.focus { box-shadow: inset 0 0 0 1px var(--c); }
   .bar { border-bottom-color: var(--c) !important; }
   .bar { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-bottom: 1px solid #333; }
@@ -102,7 +106,7 @@
   .tile { container-type: inline-size; }
   .bar { flex-wrap: nowrap; overflow: hidden; }
   .bar > * { flex: none; }
-  .bar .n { flex: 0 1 auto; min-width: 2ch; max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .n { flex: 0 0 auto; min-width: 2ch; max-width: min(14em, 40cqw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar .ti { flex: 0 1 auto; min-width: 0; }
   .bar .p { flex: 1 1 0; min-width: 0; }
   .bar .st { white-space: nowrap; }
@@ -161,7 +165,7 @@
 </head>
 <body>
 <header>
-  <img src="/logo.svg" alt="" class="logo">
+  <img src="/logo.png" alt="" class="logo">
   <input id="cwd" list="dirs" placeholder="作業ディレクトリ (空=ホーム)">
   <datalist id="dirs"></datalist>
   <input id="name" placeholder="名前">
@@ -355,7 +359,7 @@ function addTile(s) {
   nameEl.textContent = s.name;
   el.querySelector('.p').textContent = s.cwd;
   setWorktreeBadge(el, s);
-  const term = new Terminal({ allowTransparency: true, smoothScrollDuration: 120, scrollSensitivity: scrollSpeed, fontSize, cursorBlink: true, scrollback: 5000, theme: THEMES[tileThemeName(s.id) || themeName] });
+  const term = new Terminal({ allowTransparency: true, smoothScrollDuration: 120, scrollSensitivity: scrollSpeed, fontSize, cursorBlink: true, scrollback: 5000, macOptionClickForcesSelection: true, theme: THEMES[tileThemeName(s.id) || themeName] });
   const fitAddon = new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.attachCustomWheelEventHandler((e) => {
@@ -1129,6 +1133,15 @@ async function poll() {
       if (state !== 'ask') t.escal = 0;
       t.st.textContent = { end: '終了', run: '実行中', ask: '確認待ち', done: '完了', idle: '待機' }[state] + (waited ? ` ${dur(waited)}`.trimEnd() : '');
       t.st.style.fontWeight = waited >= 300000 ? '700' : '';
+      const needs = state === 'idle' || state === 'done' ? s.needs : null;
+      t.el.classList.toggle('need', !!needs);
+      t.el.classList.toggle('need-warn', needs?.label === '要確認');
+      if (needs) {
+        t.st.textContent = `【${needs.label}】`;
+        t.st.title = needs.reason;
+        t.st.style.fontWeight = '700';
+        if (t.needNotified !== needs.label) { t.needNotified = needs.label; notify(t, 'need', `【${needs.label}】${needs.reason}`); }
+      } else { t.st.title = ''; t.needNotified = ''; }
     }
     renderPager(pgCount, pageInfo().perPage);
     const c = (k) => [...tiles.values()].filter((t) => t.state === k).length;
