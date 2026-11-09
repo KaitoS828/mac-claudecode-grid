@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/jsbbshsahs-beep/mac-claudecode-grid?style=flat-square&labelColor=16181d&color=2ea44f" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/KaitoS828/mac-claudecode-grid?style=flat-square&labelColor=16181d&color=2ea44f" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A518-2ea44f?style=flat-square&labelColor=16181d" alt="Node.js 18 or newer">
   <img src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Linux-2ea44f?style=flat-square&labelColor=16181d" alt="macOS and Linux">
-  <a href="https://github.com/jsbbshsahs-beep/mac-claudecode-grid/stargazers"><img src="https://img.shields.io/github/stars/jsbbshsahs-beep/mac-claudecode-grid?style=flat-square&logo=github&labelColor=16181d&color=2ea44f" alt="Stars"></a>
+  <a href="https://github.com/KaitoS828/mac-claudecode-grid/stargazers"><img src="https://img.shields.io/github/stars/KaitoS828/mac-claudecode-grid?style=flat-square&logo=github&labelColor=16181d&color=2ea44f" alt="Stars"></a>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 CC Grid is a browser dashboard that runs several [Claude Code](https://claude.com/claude-code) sessions side by side in a grid. You see at a glance which session is working, which one is waiting for you, and how many tokens each has used. When a session stops to ask for permission, you can answer from your phone.
 
 ```bash
-git clone https://github.com/jsbbshsahs-beep/mac-claudecode-grid.git
+git clone https://github.com/KaitoS828/mac-claudecode-grid.git
 cd mac-claudecode-grid && npm install && npm start
 # open http://127.0.0.1:3032
 ```
@@ -93,7 +93,7 @@ You can. It works until you run four sessions and one of them has been waiting f
 ## Quick start
 
 ```bash
-git clone https://github.com/jsbbshsahs-beep/mac-claudecode-grid.git
+git clone https://github.com/KaitoS828/mac-claudecode-grid.git
 cd mac-claudecode-grid
 npm install
 npm start

@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/jsbbshsahs-beep/mac-claudecode-grid?style=flat-square&labelColor=16181d&color=2ea44f" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/KaitoS828/mac-claudecode-grid?style=flat-square&labelColor=16181d&color=2ea44f" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A518-2ea44f?style=flat-square&labelColor=16181d" alt="Node.js 18以上">
   <img src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Linux-2ea44f?style=flat-square&labelColor=16181d" alt="macOS と Linux">
-  <a href="https://github.com/jsbbshsahs-beep/mac-claudecode-grid/stargazers"><img src="https://img.shields.io/github/stars/jsbbshsahs-beep/mac-claudecode-grid?style=flat-square&logo=github&labelColor=16181d&color=2ea44f" alt="Stars"></a>
+  <a href="https://github.com/KaitoS828/mac-claudecode-grid/stargazers"><img src="https://img.shields.io/github/stars/KaitoS828/mac-claudecode-grid?style=flat-square&logo=github&labelColor=16181d&color=2ea44f" alt="Stars"></a>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 複数の [Claude Code](https://claude.com/claude-code) セッションを、ブラウザ上のグリッドに並べて動かすダッシュボードです。どのセッションが作業中で、どれがあなたの返事を待っていて、トークンをどれだけ使ったかが一目で分かります。許可を求めて止まったセッションには、スマホから答えられます。
 
 ```bash
-git clone https://github.com/jsbbshsahs-beep/mac-claudecode-grid.git
+git clone https://github.com/KaitoS828/mac-claudecode-grid.git
 cd mac-claudecode-grid && npm install && npm start
 # http://127.0.0.1:3032 を開く
 ```
@@ -91,7 +91,7 @@ cd mac-claudecode-grid && npm install && npm start
 ## クイックスタート
 
 ```bash
-git clone https://github.com/jsbbshsahs-beep/mac-claudecode-grid.git
+git clone https://github.com/KaitoS828/mac-claudecode-grid.git
 cd mac-claudecode-grid
 npm install
 npm start
